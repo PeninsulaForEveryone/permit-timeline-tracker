@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Peninsula Permit Tracker</title>
+<meta name="description" content="Median housing permit approval times and pipeline conversion rates across San Mateo County cities. Public accountability tool by Peninsula for Everyone." />
+<meta property="og:title" content="Peninsula Permit Tracker" />
+<meta property="og:description" content="How long does your city take to approve housing? See rankings, RHNA progress, and ADU compliance across the Peninsula." />
+<meta property="og:type" content="website" />
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:        #ffffff;
+    --bg-2:      #f7f6f3;
+    --bg-3:      #f0ede8;
+    --text:      #1a1a18;
+    --text-2:    #5a5956;
+    --text-3:    #8a8884;
+    --border:    rgba(0,0,0,0.10);
+    --border-2:  rgba(0,0,0,0.18);
+    --red-bg:    #fcebeb; --red-text:   #a32d2d; --red-bar:    #e24b4a;
+    --amber-bg:  #faeeda; --amber-text: #854f0b; --amber-bar:  #ba7517;
+    --green-bg:  #eaf3de; --green-text: #3b6d11; --green-bar:  #639922;
+    --blue-bg:   #e6f1fb; --blue-text:  #185fa5;
+    --gray-bg:   #f1efe8; --gray-text:  #5f5e5a;
+    --radius:    8px;
+    --radius-lg: 12px;
+    --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg:        #1a1a18; --bg-2: #242422; --bg-3: #2e2e2b;
+      --text:      #e8e6e0; --text-2: #a09e98; --text-3: #706e68;
+      --border:    rgba(255,255,255,0.10); --border-2: rgba(255,255,255,0.18);
+      --red-bg:    #3a1212; --red-text:   #f09595;
+      --amber-bg:  #2e1c06; --amber-text: #fac775;
+      --green-bg:  #152106; --green-text: #c0dd97;
+      --blue-bg:   #061828; --blue-text:  #85b7eb;
+      --gray-bg:   #242422; --gray-text:  #b4b2a9;
+    }
+  }
+
+  body { font-family: var(--font); background: var(--bg); color: var(--text); font-size: 15px; line-height: 1.6; }
+
+  /* ── Layout ────────────────────────────────────────────────────────────── */
+  .page { max-width: 960px; margin: 0 auto; padding: 2rem 1rem 4rem; }
+
+  .site-header { margin-bottom: 2rem; }
+  .site-header h1 { font-size: 22px; font-weight: 600; margin-bottom: 4px; }
+  .site-header p  { font-size: 14px; color: var(--text-2); }
+  .site-header .org { font-size: 13px; color: var(--text-3); margin-top: 2px; }
+
+  .freshness { font-size: 12px; color: var(--text-3); margin-top: 6px; }
+  .freshness a { color: var(--blue-text); text-decoration: none; }
+  .freshness a:hover { text-decoration: underline; }
+
+  /* ── Controls ──────────────────────────────────────────────────────────── */
+  .controls { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 1rem; }
+  .filter-group { display: flex; gap: 4px; }
+  .filter-btn {
+    font-size: 13px; padding: 5px 12px; border-radius: 99px;
+    border: 1px solid var(--border-2); background: transparent;
+    color: var(--text-2); cursor: pointer; transition: all 0.1s;
+  }
+  .filter-btn.active { background: var(--text); color: var(--bg); border-color: var(--text); }
+  .filter-btn:hover:not(.active) { background: var(--bg-2); }
+  .sort-label { font-size: 13px; color: var(--text-3); margin-left: 8px; }
+  select {
+    font-size: 13px; padding: 5px 10px; border-radius: var(--radius);
+    border: 1px solid var(--border-2); background: var(--bg); color: var(--text); cursor: pointer;
+  }
+
+  /* ── Table ─────────────────────────────────────────────────────────────── */
+  .table-wrap { width: 100%; overflow-x: auto; margin-bottom: 1rem; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th {
+    text-align: left; padding: 8px 10px;
+    border-bottom: 1px solid var(--border-2);
+    color: var(--text-3); font-weight: 500; font-size: 12px;
+    white-space: nowrap; cursor: pointer; user-select: none;
+  }
+  th:hover { color: var(--text); }
+  th .sort-arrow { margin-left: 3px; opacity: 0.4; }
+  th.sorted .sort-arrow { opacity: 1; }
+  td { padding: 10px 10px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  tr:hover td { background: var(--bg-2); }
+  tr.selected-row td { background: var(--blue-bg); }
+  .rank-num { font-size: 12px; color: var(--text-3); font-weight: 500; }
+  .city-link { font-weight: 500; color: var(--text); cursor: pointer; text-decoration: none; }
+  .city-link:hover { text-decoration: underline; }
+  .na-val { color: var(--text-3); font-style: italic; font-size: 12px; }
+
+  /* ── Badges ────────────────────────────────────────────────────────────── */
+  .badge {
+    display: inline-block; font-size: 11px; font-weight: 500;
+    padding: 2px 8px; border-radius: 99px; white-space: nowrap;
+  }
+  .badge-red   { background: var(--red-bg);   color: var(--red-text); }
+  .badge-amber { background: var(--amber-bg); color: var(--amber-text); }
+  .badge-green { background: var(--green-bg); color: var(--green-text); }
+  .badge-gray  { background: var(--gray-bg);  color: var(--gray-text); }
+  .badge-blue  { background: var(--blue-bg);  color: var(--blue-text); }
+
+  /* ── Score bar ─────────────────────────────────────────────────────────── */
+  .score-wrap { display: flex; align-items: center; gap: 6px; }
+  .score-track { flex: 1; height: 4px; background: var(--border); border-radius: 2px; min-width: 36px; }
+  .score-fill  { height: 4px; border-radius: 2px; }
+  .score-num   { font-size: 12px; font-weight: 600; min-width: 22px; text-align: right; }
+
+  /* ── Source dot ────────────────────────────────────────────────────────── */
+  .src-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 5px; }
+  .src-hybrid { background: var(--green-bar); }
+  .src-apr    { background: var(--text-3); }
+
+  /* ── Drilldown panel ───────────────────────────────────────────────────── */
+  .drilldown {
+    background: var(--bg); border: 1px solid var(--border-2);
+    border-radius: var(--radius-lg); padding: 1.5rem; margin-top: 1.5rem;
+  }
+  .dd-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.25rem; }
+  .dd-title { font-size: 18px; font-weight: 600; }
+  .dd-sub   { font-size: 13px; color: var(--text-2); margin-top: 3px; }
+  .close-btn {
+    background: none; border: 1px solid var(--border-2); border-radius: var(--radius);
+    padding: 4px 10px; font-size: 13px; color: var(--text-2); cursor: pointer;
+  }
+  .close-btn:hover { background: var(--bg-2); }
+
+  .metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin-bottom: 1.25rem; }
+  .metric-card  { background: var(--bg-2); border-radius: var(--radius); padding: 12px 14px; }
+  .metric-label { font-size: 11px; color: var(--text-2); margin-bottom: 5px; }
+  .metric-value { font-size: 22px; font-weight: 600; line-height: 1; }
+  .metric-sub   { font-size: 11px; color: var(--text-3); margin-top: 4px; }
+
+  /* ── Funnel ────────────────────────────────────────────────────────────── */
+  .funnel-wrap { margin-bottom: 1.25rem; }
+  .funnel-title { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--text-3); margin-bottom: 10px; }
+  .funnel { display: flex; gap: 3px; align-items: flex-end; height: 100px; }
+  .funnel-col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; }
+  .funnel-bar { width: 100%; border-radius: 3px 3px 0 0; }
+  .funnel-lbl { font-size: 10px; color: var(--text-3); text-align: center; line-height: 1.3; }
+  .funnel-val { font-size: 13px; font-weight: 600; }
+  .funnel-pct { font-size: 10px; color: var(--text-3); }
+
+  /* ── RHNA progress bar ─────────────────────────────────────────────────── */
+  .rhna-bar-wrap { display: flex; align-items: center; gap: 10px; margin-bottom: 1.25rem; }
+  .rhna-track { flex: 1; height: 10px; background: var(--border); border-radius: 5px; overflow: hidden; }
+  .rhna-fill  { height: 100%; border-radius: 5px; }
+  .rhna-label { font-size: 12px; color: var(--text-2); white-space: nowrap; min-width: 120px; text-align: right; }
+
+  /* ── Detail rows ───────────────────────────────────────────────────────── */
+  .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; margin-bottom: 1rem; }
+  @media (max-width: 600px) { .detail-grid { grid-template-columns: 1fr; } }
+  .detail-section-title { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--text-3); margin-bottom: 8px; }
+  .kv-row { display: flex; justify-content: space-between; align-items: baseline; padding: 5px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+  .kv-row:last-child { border-bottom: none; }
+  .kv-key { color: var(--text-2); }
+  .kv-val { font-weight: 500; text-align: right; }
+
+  /* ── ADU highlight ─────────────────────────────────────────────────────── */
+  .adu-panel {
+    background: var(--bg-2); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 12px 14px; margin-bottom: 1rem;
+  }
+  .adu-panel h3 { font-size: 13px; font-weight: 600; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+  .adu-violation { color: var(--red-text); font-size: 12px; margin-top: 4px; }
+
+  /* ── Warning box ───────────────────────────────────────────────────────── */
+  .warn-box {
+    background: var(--amber-bg); border: 1px solid var(--amber-bar);
+    border-radius: var(--radius); padding: 10px 14px;
+    font-size: 12px; color: var(--amber-text); margin-top: 1rem;
+    line-height: 1.5;
+  }
+
+  /* ── Legend / footer ───────────────────────────────────────────────────── */
+  .legend { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 1.5rem; }
+  .legend-item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-3); }
+
+  .methodology { border-top: 1px solid var(--border); margin-top: 3rem; padding-top: 1.5rem; }
+  .methodology h2 { font-size: 15px; font-weight: 600; margin-bottom: .75rem; }
+  .methodology p, .methodology li { font-size: 13px; color: var(--text-2); line-height: 1.7; margin-bottom: .5rem; }
+  .methodology ul { padding-left: 1.25rem; }
+
+  .site-footer { margin-top: 2rem; font-size: 12px; color: var(--text-3); }
+  .site-footer a { color: var(--blue-text); text-decoration: none; }
+  .site-footer a:hover { text-decoration: underline; }
+
+  /* ── Loading / error ───────────────────────────────────────────────────── */
+  .loading { text-align: center; padding: 3rem; color: var(--text-3); }
+  .error { background: var(--red-bg); color: var(--red-text); border-radius: var(--radius); padding: 1rem; margin: 1rem 0; font-size: 13px; }
+</style>
+</head>
+<body>
+<div class="page" id="app">
+  <div class="loading">Loading permit data…</div>
+</div>
+
+<script>
+// ── State ───────────────────────────────────────────────────────────────────
+let DATA = null;
+let state = {
+  unitFilter: 'all',   // 'all' | 'adu' | 'non_adu'
+  sortKey: 'friction_score',
+  sortDir: -1,         // -1 = descending (worst first)
+  selectedCity: null,
+};
+
+// ── Boot ────────────────────────────────────────────────────────────────────
+fetch('data/viz_data.json')
+  .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+  .then(d => { DATA = d; render(); })
+  .catch(e => {
+    document.getElementById('app').innerHTML =
+      `<div class="error">Could not load viz_data.json: ${e.message}<br>
+      Run <code>make run</code> to generate it, or check the GitHub Actions workflow.</div>`;
+  });
+
+// ── Main render ──────────────────────────────────────────────────────────────
+function render() {
+  const app = document.getElementById('app');
+  const cities = filteredAndSorted();
+  const sel = state.selectedCity ? cities.find(c => c.city === state.selectedCity) : null;
+
+  app.innerHTML = headerHTML() + controlsHTML() + legendHTML() + tableHTML(cities) +
+    (sel ? drilldownHTML(sel) : '') + methodologyHTML() + footerHTML();
+
+  // Re-attach after re-render
+  app.querySelectorAll('[data-sort]').forEach(th =>
+    th.addEventListener('click', () => setSort(th.dataset.sort)));
+  app.querySelectorAll('[data-filter]').forEach(btn =>
+    btn.addEventListener('click', () => { state.unitFilter = btn.dataset.filter; render(); }));
+  app.querySelectorAll('[data-sort-select]').forEach(sel =>
+    sel.addEventListener('change', e => setSort(e.target.value)));
+  app.querySelectorAll('[data-city]').forEach(el =>
+    el.addEventListener('click', () => selectCity(el.dataset.city)));
+  const closeBtn = app.querySelector('[data-close-drilldown]');
+  if (closeBtn) closeBtn.addEventListener('click', () => { state.selectedCity = null; render(); });
+
+  if (sel) {
+    setTimeout(() => {
+      const dd = document.querySelector('.drilldown');
+      if (dd) dd.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }, 30);
+  }
+}
+
+// ── Filter / sort ────────────────────────────────────────────────────────────
+function filteredAndSorted() {
+  let cities = DATA.cities.slice();
+
+  if (state.unitFilter === 'adu') {
+    cities = cities.map(c => ({
+      ...c,
+      _display_apps:    c.adu?.apps ?? 0,
+      _display_permits: c.adu?.permits ?? 0,
+      _display_days:    c.adu?.median_days,
+      _display_conv:    c.adu?.permits > 0 && c.adu?.apps > 0
+                          ? +(c.adu.permits / c.adu.apps * 100).toFixed(1) : null,
+    }));
+  } else {
+    cities = cities.map(c => ({
+      ...c,
+      _display_apps:    c.apps_total,
+      _display_permits: c.permits_total,
+      _display_days:    c.median_days_to_permit,
+      _display_conv:    c.conversion_rate_pct,
+    }));
+  }
+
+  const key = state.sortKey;
+  cities.sort((a, b) => {
+    let av = a[key] ?? (state.sortDir < 0 ? -Infinity : Infinity);
+    let bv = b[key] ?? (state.sortDir < 0 ? -Infinity : Infinity);
+    if (key === 'city') return state.sortDir * av.localeCompare(bv);
+    if (key === '_display_conv') { av = a._display_conv ?? -Infinity; bv = b._display_conv ?? -Infinity; }
+    if (key === '_display_days') { av = a._display_days ?? Infinity; bv = b._display_days ?? Infinity; }
+    if (key === 'rhna_progress_pct') { av = a.rhna_progress_pct ?? -Infinity; bv = b.rhna_progress_pct ?? -Infinity; }
+    return state.sortDir * (bv - av);
+  });
+
+  return cities.map((c, i) => ({ ...c, _rank: i + 1 }));
+}
+
+function setSort(key) {
+  if (state.sortKey === key) state.sortDir *= -1;
+  else { state.sortKey = key; state.sortDir = -1; }
+  render();
+}
+
+function selectCity(name) {
+  state.selectedCity = (state.selectedCity === name) ? null : name;
+  render();
+}
+
+// ── HTML builders ────────────────────────────────────────────────────────────
+function headerHTML() {
+  const meta = DATA.metadata;
+  const yr = meta.latest_apr_year_table_a ?? '?';
+  return `
+  <header class="site-header">
+    <h1>Peninsula Permit Tracker</h1>
+    <p>How long does your city take to approve housing?
+       Ranked by friction score across ${meta.jurisdiction_count} Peninsula jurisdictions.</p>
+    <p class="org">A project of <a href="https://www.peninsulaforeveryone.org" target="_blank" rel="noopener">Peninsula for Everyone</a></p>
+    <p class="freshness">
+      Data: <a href="${meta.source_url}" target="_blank" rel="noopener">HCD Housing Element APR</a>,
+      through reporting year ${yr} · Updated ${fmtDate(meta.generated_at)}
+    </p>
+  </header>`;
+}
+
+function controlsHTML() {
+  const f = state.unitFilter;
+  return `
+  <div class="controls">
+    <div class="filter-group">
+      <button class="filter-btn ${f==='all'?'active':''}" data-filter="all">All housing</button>
+      <button class="filter-btn ${f==='adu'?'active':''}" data-filter="adu">ADUs only</button>
+      <button class="filter-btn ${f==='non_adu'?'active':''}" data-filter="non_adu">Non-ADU</button>
+    </div>
+    ${f === 'adu' ? `<span class="badge badge-blue" style="font-size:12px">
+      ADUs: state law requires approval within 60 days</span>` : ''}
+  </div>`;
+}
+
+function legendHTML() {
+  return `
+  <div class="legend">
+    <div class="legend-item"><span class="src-dot src-hybrid"></span>APR + city open data</div>
+    <div class="legend-item"><span class="src-dot src-apr"></span>HCD APR only (self-reported, annual)</div>
+    <div class="legend-item">Friction score: 0 = fast/compliant · 100 = most obstructive</div>
+  </div>`;
+}
+
+function tableHTML(cities) {
+  const s = state.sortKey;
+  const d = state.sortDir;
+  function arrow(key) {
+    if (s !== key) return `<span class="sort-arrow">↕</span>`;
+    return `<span class="sort-arrow">${d < 0 ? '↓' : '↑'}</span>`;
+  }
+  const isAdu = state.unitFilter === 'adu';
+
+  return `
+  <div class="table-wrap">
+  <table>
+    <thead><tr>
+      <th data-sort="friction_score" class="${s==='friction_score'?'sorted':''}">Friction score ${arrow('friction_score')}</th>
+      <th data-sort="city" class="${s==='city'?'sorted':''}">City ${arrow('city')}</th>
+      <th data-sort="rhna_progress_pct" class="${s==='rhna_progress_pct'?'sorted':''}">RHNA progress ${arrow('rhna_progress_pct')}</th>
+      <th data-sort="_display_conv" class="${s==='_display_conv'?'sorted':''}">App → permit rate ${arrow('_display_conv')}</th>
+      <th data-sort="_display_days" class="${s==='_display_days'?'sorted':''}">
+        ${isAdu ? 'Median days (60-day limit)' : 'Median days to permit'} ${arrow('_display_days')}
+      </th>
+      <th>Data source</th>
+      <th></th>
+    </tr></thead>
+    <tbody>
+    ${cities.map(c => {
+      const score = c.friction_score;
+      const scoreColor = score >= 60 ? '#e24b4a' : score >= 35 ? '#ba7517' : '#639922';
+      const rhna = c.rhna_progress_pct;
+      const rhnaBadge = rhna == null ? 'badge-gray' : rhna >= 60 ? 'badge-green' : rhna >= 30 ? 'badge-amber' : 'badge-red';
+      const rhnaLabel = rhna != null ? `${rhna}%` : '—';
+      const conv = c._display_conv;
+      const convBadge = conv == null ? 'badge-gray' : conv >= 55 ? 'badge-green' : conv >= 30 ? 'badge-amber' : 'badge-red';
+      const convLabel = conv != null ? `${conv}%` : '<span class="na-val">no data</span>';
+      const days = c._display_days;
+      const daysBadge = days == null ? 'badge-gray'
+                      : (isAdu ? (days <= 60 ? 'badge-green' : days <= 90 ? 'badge-amber' : 'badge-red')
+                               : (days <= 200 ? 'badge-green' : days <= 350 ? 'badge-amber' : 'badge-red'));
+      const daysLabel = days != null ? `${days}d` : '<span class="na-val">not reported</span>';
+      const isSelected = state.selectedCity === c.city;
+      const srcClass = c.data_source === 'hybrid' ? 'src-hybrid' : 'src-apr';
+      const srcLabel = c.data_source === 'hybrid' ? 'APR + city portal' : 'HCD APR only';
+
+      return `
+      <tr class="${isSelected ? 'selected-row' : ''}">
+        <td>
+          <div class="score-wrap">
+            <div class="score-track"><div class="score-fill" style="width:${score}%;background:${scoreColor}"></div></div>
+            <span class="score-num" style="color:${scoreColor}">${score}</span>
+          </div>
+        </td>
+        <td><a class="city-link" data-city="${c.city}">${c.city}</a></td>
+        <td>
+          <span class="badge ${rhnaBadge}">${rhnaLabel}</span>
+          <span style="font-size:11px;color:var(--text-3);margin-left:4px">${c.rhna_permitted}/${c.rhna_target}</span>
+        </td>
+        <td><span class="badge ${convBadge}">${convLabel}</span></td>
+        <td>
+          <span class="badge ${daysBadge}">${daysLabel}</span>
+          ${isAdu && days != null && days > 60
+            ? `<span style="font-size:10px;color:var(--red-text);margin-left:4px">⚠ over limit</span>` : ''}
+          ${days == null ? `<span style="font-size:10px;color:var(--text-3);margin-left:4px">city did not report</span>` : ''}
+        </td>
+        <td><span class="src-dot ${srcClass}"></span><span style="font-size:12px;color:var(--text-3)">${srcLabel}</span></td>
+        <td><a class="city-link" data-city="${c.city}" style="font-size:12px">Details →</a></td>
+      </tr>`;
+    }).join('')}
+    </tbody>
+  </table>
+  </div>`;
+}
+
+function drilldownHTML(c) {
+  const score = c.friction_score;
+  const scoreColor = score >= 60 ? '#e24b4a' : score >= 35 ? '#ba7517' : '#639922';
+  const rhna = c.rhna_progress_pct ?? 0;
+  const rhnaColor = rhna >= 60 ? '#639922' : rhna >= 30 ? '#ba7517' : '#e24b4a';
+  const rhnaFill = Math.min(rhna, 100);
+
+  // Funnel
+  const steps = [
+    { label: 'Applications', val: c.apps_total, color: '#378add' },
+    { label: 'Entitlements', val: c.entitlements_total, color: '#7f77dd' },
+    { label: 'Permits', val: c.permits_total, color: '#1d9e75' },
+    { label: 'COs', val: c.cos_total, color: '#639922' },
+  ];
+  const maxVal = steps[0].val || 1;
+  const maxH = 72;
+
+  // ADU panel
+  const adu = c.adu || {};
+  const aduHasData = adu.median_days != null;
+  const aduOverLimit = aduHasData && adu.median_days > 60;
+  const aduWithin = adu.within_60_days_pct;
+
+  // Date completeness — show as a signal
+  const dc = c.date_completeness_pct || {};
+  const appDatePct = dc['table_a_date_application_complete_pct'];
+  const pmtDatePct = dc['table_a2_date_building_permit_pct'];
+
+  const years = (c.years_in_data || []).join(', ') || '—';
+
+  return `
+  <div class="drilldown">
+    <div class="dd-header">
+      <div>
+        <div class="dd-title">${c.city}</div>
+        <div class="dd-sub">
+          Friction score <strong style="color:${scoreColor}">${score}/100</strong>
+          · Years in data: ${years}
+          · ${c.data_source === 'hybrid' ? 'APR + city open data' : 'HCD APR only'}
+        </div>
+      </div>
+      <button class="close-btn" data-close-drilldown>Close ✕</button>
+    </div>
+
+    <div class="metrics-grid">
+      <div class="metric-card">
+        <div class="metric-label">Median days, app → permit</div>
+        <div class="metric-value" style="color:${c.median_days_to_permit > 350 ? '#e24b4a' : c.median_days_to_permit > 200 ? '#ba7517' : '#639922'}">
+          ${c.median_days_to_permit != null ? c.median_days_to_permit + 'd' : '—'}
+        </div>
+        <div class="metric-sub">${c.timeline_n > 0 ? `n=${c.timeline_n} projects` : 'no date data'}</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">App → entitlement</div>
+        <div class="metric-value">${c.median_days_to_entitlement != null ? c.median_days_to_entitlement + 'd' : '—'}</div>
+        <div class="metric-sub">median days</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">RHNA progress (6th cycle)</div>
+        <div class="metric-value" style="color:${rhnaColor}">${rhna != null ? rhna + '%' : '—'}</div>
+        <div class="metric-sub">${c.rhna_permitted} of ${(c.rhna_target||0).toLocaleString()} units</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Permit conversion rate</div>
+        <div class="metric-value">${c.conversion_rate_pct != null ? c.conversion_rate_pct + '%' : '—'}</div>
+        <div class="metric-sub">apps reaching permit</div>
+      </div>
+    </div>
+
+    <div class="rhna-bar-wrap">
+      <div class="rhna-track"><div class="rhna-fill" style="width:${rhnaFill}%;background:${rhnaColor}"></div></div>
+      <div class="rhna-label">${c.rhna_permitted} / ${(c.rhna_target||0).toLocaleString()} units (${rhna ?? '—'}%)</div>
+    </div>
+
+    <div class="funnel-wrap">
+      <div class="funnel-title">Pipeline funnel (all years combined)</div>
+      <div class="funnel">
+        ${steps.map(s => {
+          const h = maxVal > 0 ? Math.max(Math.round(s.val / maxVal * maxH), 2) : 2;
+          const pct = maxVal > 0 ? Math.round(s.val / maxVal * 100) : 0;
+          return `<div class="funnel-col">
+            <div class="funnel-val">${s.val ?? '—'}</div>
+            <div class="funnel-pct">${pct}%</div>
+            <div class="funnel-bar" style="height:${h}px;background:${s.color};opacity:.85"></div>
+            <div class="funnel-lbl">${s.label}</div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>
+
+    ${aduHasData || adu.apps > 0 ? `
+    <div class="adu-panel">
+      <h3>ADU pipeline
+        ${aduOverLimit
+          ? `<span class="badge badge-red">⚠ exceeds 60-day limit</span>`
+          : aduHasData ? `<span class="badge badge-green">within 60-day limit</span>` : ''}
+      </h3>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:10px;font-size:13px">
+        <div><div style="color:var(--text-3);font-size:11px">ADU applications</div><strong>${adu.apps ?? '—'}</strong></div>
+        <div><div style="color:var(--text-3);font-size:11px">ADU permits issued</div><strong>${adu.permits ?? '—'}</strong></div>
+        <div><div style="color:var(--text-3);font-size:11px">Median days</div><strong>${adu.median_days != null ? adu.median_days + 'd' : '—'}</strong></div>
+        <div><div style="color:var(--text-3);font-size:11px">Within 60 days</div><strong>${aduWithin != null ? aduWithin + '%' : '—'}</strong></div>
+      </div>
+      ${aduOverLimit ? `<div class="adu-violation">
+        Median approval time exceeds the 60-day ministerial review deadline (AB 68/881).
+        This constitutes a documented violation of state law.
+      </div>` : ''}
+    </div>` : ''}
+
+    <div class="detail-grid">
+      <div>
+        <div class="detail-section-title">Data quality</div>
+        <div class="kv-row">
+          <span class="kv-key">Application dates reported</span>
+          <span class="kv-val">${appDatePct != null ? appDatePct + '%' : '—'}</span>
+        </div>
+        <div class="kv-row">
+          <span class="kv-key">Permit dates reported</span>
+          <span class="kv-val">${pmtDatePct != null ? pmtDatePct + '%' : '—'}</span>
+        </div>
+        <div class="kv-row">
+          <span class="kv-key">Timeline match rate</span>
+          <span class="kv-val">${c.timeline_match_rate_pct != null ? c.timeline_match_rate_pct + '%' : '—'}</span>
+        </div>
+        <div class="kv-row">
+          <span class="kv-key">Data source</span>
+          <span class="kv-val">${c.data_source === 'hybrid' ? 'APR + city portal' : 'HCD APR only'}</span>
+        </div>
+        ${c.portal_url ? `<div class="kv-row">
+          <span class="kv-key">City portal</span>
+          <span class="kv-val"><a href="${c.portal_url}" target="_blank" rel="noopener" style="color:var(--blue-text)">Open ↗</a></span>
+        </div>` : ''}
+      </div>
+      <div>
+        <div class="detail-section-title">Accountability levers</div>
+        <div class="kv-row">
+          <span class="kv-key">SB 35 ministerial eligible</span>
+          <span class="kv-val">${(c.rhna_progress_pct ?? 0) < 75
+            ? '<span class="badge badge-red">Likely yes</span>'
+            : '<span class="badge badge-gray">Check HCD</span>'}</span>
+        </div>
+        <div class="kv-row">
+          <span class="kv-key">Builder's Remedy risk</span>
+          <span class="kv-val">${score > 60 ? '<span class="badge badge-red">High</span>'
+            : score > 35 ? '<span class="badge badge-amber">Medium</span>'
+            : '<span class="badge badge-green">Low</span>'}</span>
+        </div>
+        <div class="kv-row">
+          <span class="kv-key">HCD compliance status</span>
+          <span class="kv-val"><a href="https://www.hcd.ca.gov/planning-and-community-development/housing-element-compliance"
+            target="_blank" rel="noopener" style="color:var(--blue-text)">Check HCD ↗</a></span>
+        </div>
+      </div>
+    </div>
+
+    ${appDatePct != null && appDatePct < 50 ? `
+    <div class="warn-box">
+      ⚠ ${c.city} reported application dates in only ${appDatePct}% of rows.
+      Missing dates are a compliance failure under Government Code 65400 —
+      this city did not fully report required permit timeline data to HCD.
+    </div>` : ''}
+  </div>`;
+}
+
+function methodologyHTML() {
+  const m = DATA.methodology;
+  return `
+  <section class="methodology">
+    <h2>Methodology & data notes</h2>
+    <p>${m.friction_score}</p>
+    <p>${m.timeline}</p>
+    <p>${m.adu_compliance}</p>
+    <ul>${(m.data_caveats || []).map(c => `<li>${c}</li>`).join('')}</ul>
+    <p style="margin-top:.75rem">
+      Source data: <a href="${DATA.metadata.source_url}" target="_blank" rel="noopener">HCD Housing Element APR (data.ca.gov)</a>.
+      Pipeline code: <a href="https://github.com/PeninsulaForEveryone/peninsula-permit-tracker" target="_blank" rel="noopener">github.com/PeninsulaForEveryone/peninsula-permit-tracker</a>.
+    </p>
+  </section>`;
+}
+
+function footerHTML() {
+  return `
+  <footer class="site-footer">
+    <p>Built by <a href="https://www.peninsulaforeveryone.org" target="_blank" rel="noopener">Peninsula for Everyone</a>.
+    Data: California HCD (CC BY) · Code: MIT.
+    See also: <a href="https://peninsulaforeveryone.github.io/peninsula-enrollment-decline/" target="_blank" rel="noopener">enrollment vs. housing tracker</a>.</p>
+  </footer>`;
+}
+
+// ── Utilities ────────────────────────────────────────────────────────────────
+function fmtDate(iso) {
+  if (!iso) return '—';
+  try { return new Date(iso).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }); }
+  catch { return iso; }
+}
+</script>
+</body>
+</html>

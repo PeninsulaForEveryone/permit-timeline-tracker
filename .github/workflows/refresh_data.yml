@@ -1,0 +1,36 @@
+name: Refresh permit data
+
+on:
+  schedule:
+    - cron: '0 10 * * 1'   # Every Monday at 10:00 UTC (2am PT)
+  workflow_dispatch:         # Allow manual trigger from GitHub UI
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run pipeline (force re-download)
+        run: python -m pipeline.run_all --force
+
+      - name: Commit updated viz_data.json
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/data/viz_data.json
+          git diff --cached --quiet || git commit -m "chore: refresh permit data $(date -u +%Y-%m-%d)"
+          git push
