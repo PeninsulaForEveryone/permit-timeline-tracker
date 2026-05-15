@@ -11,69 +11,54 @@
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+  /* Light mode — warm off-white editorial palette matching peninsulaforeveryone.org */
   :root {
-    --bg:        #ffffff;
-    --bg-2:      #f7f6f3;
-    --bg-3:      #f0ede8;
-    --text:      #1a1a18;
-    --text-2:    #5a5956;
-    --text-3:    #8a8884;
-    --border:    rgba(0,0,0,0.10);
-    --border-2:  rgba(0,0,0,0.18);
-    --red-bg:    #fcebeb; --red-text:   #a32d2d; --red-bar:    #e24b4a;
-    --amber-bg:  #faeeda; --amber-text: #854f0b; --amber-bar:  #ba7517;
-    --green-bg:  #eaf3de; --green-text: #3b6d11; --green-bar:  #639922;
-    --blue-bg:   #e6f1fb; --blue-text:  #185fa5;
-    --gray-bg:   #f1efe8; --gray-text:  #5f5e5a;
-    --radius:    8px;
-    --radius-lg: 12px;
+    --bg:        #faf9f6;
+    --bg-2:      #f2f0eb;
+    --bg-3:      #e8e5de;
+    --text:      #1c1b18;
+    --text-2:    #4a4844;
+    --text-3:    #7a7874;
+    --border:    rgba(0,0,0,0.09);
+    --border-2:  rgba(0,0,0,0.16);
+    --red-bg:    #fdecea; --red-text:   #8b1f1f; --red-bar:    #d94040;
+    --amber-bg:  #fef4e4; --amber-text: #7a4208; --amber-bar:  #b87316;
+    --green-bg:  #eaf5da; --green-text: #2e5e10; --green-bar:  #4e8a16;
+    --blue-bg:   #e8f2fc; --blue-text:  #1455a0;
+    --gray-bg:   #eeece6; --gray-text:  #5a5856;
+    --radius:    7px;
+    --radius-lg: 11px;
     --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
-  }
-
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --bg:        #1a1a18; --bg-2: #242422; --bg-3: #2e2e2b;
-      --text:      #e8e6e0; --text-2: #a09e98; --text-3: #706e68;
-      --border:    rgba(255,255,255,0.10); --border-2: rgba(255,255,255,0.18);
-      --red-bg:    #3a1212; --red-text:   #f09595;
-      --amber-bg:  #2e1c06; --amber-text: #fac775;
-      --green-bg:  #152106; --green-text: #c0dd97;
-      --blue-bg:   #061828; --blue-text:  #85b7eb;
-      --gray-bg:   #242422; --gray-text:  #b4b2a9;
-    }
   }
 
   body { font-family: var(--font); background: var(--bg); color: var(--text); font-size: 15px; line-height: 1.6; }
 
-  /* ── Layout ────────────────────────────────────────────────────────────── */
+  /* ── Layout ── */
   .page { max-width: 960px; margin: 0 auto; padding: 2rem 1rem 4rem; }
 
+  /* ── Header ── */
+  .site-eyebrow { font-size: 13px; color: var(--text-3); margin-bottom: 1rem; }
+  .site-eyebrow a { color: var(--text-3); text-decoration: none; font-weight: 500; }
+  .site-eyebrow a:hover { color: var(--text); }
   .site-header { margin-bottom: 2rem; }
-  .site-header h1 { font-size: 22px; font-weight: 600; margin-bottom: 4px; }
-  .site-header p  { font-size: 14px; color: var(--text-2); }
-  .site-header .org { font-size: 13px; color: var(--text-3); margin-top: 2px; }
-
-  .freshness { font-size: 12px; color: var(--text-3); margin-top: 6px; }
+  .site-header h1 { font-size: 22px; font-weight: 600; margin-bottom: 6px; }
+  .site-header p  { font-size: 14px; color: var(--text-2); line-height: 1.5; }
+  .freshness { font-size: 12px; color: var(--text-3); margin-top: 8px; }
   .freshness a { color: var(--blue-text); text-decoration: none; }
   .freshness a:hover { text-decoration: underline; }
 
-  /* ── Controls ──────────────────────────────────────────────────────────── */
+  /* ── Controls ── */
   .controls { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 1rem; }
   .filter-group { display: flex; gap: 4px; }
   .filter-btn {
     font-size: 13px; padding: 5px 12px; border-radius: 99px;
     border: 1px solid var(--border-2); background: transparent;
-    color: var(--text-2); cursor: pointer; transition: all 0.1s;
+    color: var(--text-2); cursor: pointer; transition: background 0.1s, color 0.1s;
   }
   .filter-btn.active { background: var(--text); color: var(--bg); border-color: var(--text); }
   .filter-btn:hover:not(.active) { background: var(--bg-2); }
-  .sort-label { font-size: 13px; color: var(--text-3); margin-left: 8px; }
-  select {
-    font-size: 13px; padding: 5px 10px; border-radius: var(--radius);
-    border: 1px solid var(--border-2); background: var(--bg); color: var(--text); cursor: pointer;
-  }
 
-  /* ── Table ─────────────────────────────────────────────────────────────── */
+  /* ── Table ── */
   .table-wrap { width: 100%; overflow-x: auto; margin-bottom: 1rem; }
   table { width: 100%; border-collapse: collapse; font-size: 13px; }
   th {
@@ -88,70 +73,60 @@
   td { padding: 10px 10px; border-bottom: 1px solid var(--border); vertical-align: middle; }
   tr:hover td { background: var(--bg-2); }
   tr.selected-row td { background: var(--blue-bg); }
-  .rank-num { font-size: 12px; color: var(--text-3); font-weight: 500; }
   .city-link { font-weight: 500; color: var(--text); cursor: pointer; text-decoration: none; }
   .city-link:hover { text-decoration: underline; }
   .na-val { color: var(--text-3); font-style: italic; font-size: 12px; }
 
-  /* ── Badges ────────────────────────────────────────────────────────────── */
-  .badge {
-    display: inline-block; font-size: 11px; font-weight: 500;
-    padding: 2px 8px; border-radius: 99px; white-space: nowrap;
-  }
+  /* ── Badges ── */
+  .badge { display: inline-block; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 99px; white-space: nowrap; }
   .badge-red   { background: var(--red-bg);   color: var(--red-text); }
   .badge-amber { background: var(--amber-bg); color: var(--amber-text); }
   .badge-green { background: var(--green-bg); color: var(--green-text); }
   .badge-gray  { background: var(--gray-bg);  color: var(--gray-text); }
   .badge-blue  { background: var(--blue-bg);  color: var(--blue-text); }
 
-  /* ── Score bar ─────────────────────────────────────────────────────────── */
-  .score-wrap { display: flex; align-items: center; gap: 6px; }
-  .score-track { flex: 1; height: 4px; background: var(--border); border-radius: 2px; min-width: 36px; }
-  .score-fill  { height: 4px; border-radius: 2px; }
-  .score-num   { font-size: 12px; font-weight: 600; min-width: 22px; text-align: right; }
+  /* ── Score bar ── */
+  .score-wrap  { display: flex; align-items: center; gap: 6px; }
+  .score-track { flex: 1; height: 5px; background: var(--bg-3); border-radius: 3px; min-width: 36px; }
+  .score-fill  { height: 5px; border-radius: 3px; }
+  .score-num   { font-size: 12px; font-weight: 700; min-width: 22px; text-align: right; }
 
-  /* ── Source dot ────────────────────────────────────────────────────────── */
+  /* ── Source dot ── */
   .src-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 5px; }
   .src-hybrid { background: var(--green-bar); }
   .src-apr    { background: var(--text-3); }
 
-  /* ── Drilldown panel ───────────────────────────────────────────────────── */
-  .drilldown {
-    background: var(--bg); border: 1px solid var(--border-2);
-    border-radius: var(--radius-lg); padding: 1.5rem; margin-top: 1.5rem;
-  }
-  .dd-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.25rem; }
-  .dd-title { font-size: 18px; font-weight: 600; }
-  .dd-sub   { font-size: 13px; color: var(--text-2); margin-top: 3px; }
-  .close-btn {
-    background: none; border: 1px solid var(--border-2); border-radius: var(--radius);
-    padding: 4px 10px; font-size: 13px; color: var(--text-2); cursor: pointer;
-  }
+  /* ── Drilldown ── */
+  .drilldown { background: var(--bg); border: 1px solid var(--border-2); border-radius: var(--radius-lg); padding: 1.5rem; margin-top: 1.5rem; }
+  .dd-header  { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.25rem; }
+  .dd-title   { font-size: 18px; font-weight: 600; }
+  .dd-sub     { font-size: 13px; color: var(--text-2); margin-top: 3px; }
+  .close-btn  { background: none; border: 1px solid var(--border-2); border-radius: var(--radius); padding: 4px 10px; font-size: 13px; color: var(--text-2); cursor: pointer; }
   .close-btn:hover { background: var(--bg-2); }
 
   .metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin-bottom: 1.25rem; }
   .metric-card  { background: var(--bg-2); border-radius: var(--radius); padding: 12px 14px; }
   .metric-label { font-size: 11px; color: var(--text-2); margin-bottom: 5px; }
-  .metric-value { font-size: 22px; font-weight: 600; line-height: 1; }
+  .metric-value { font-size: 22px; font-weight: 700; line-height: 1; }
   .metric-sub   { font-size: 11px; color: var(--text-3); margin-top: 4px; }
 
-  /* ── Funnel ────────────────────────────────────────────────────────────── */
-  .funnel-wrap { margin-bottom: 1.25rem; }
+  /* ── Funnel ── */
+  .funnel-wrap  { margin-bottom: 1.25rem; }
   .funnel-title { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--text-3); margin-bottom: 10px; }
-  .funnel { display: flex; gap: 3px; align-items: flex-end; height: 100px; }
-  .funnel-col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; }
-  .funnel-bar { width: 100%; border-radius: 3px 3px 0 0; }
-  .funnel-lbl { font-size: 10px; color: var(--text-3); text-align: center; line-height: 1.3; }
-  .funnel-val { font-size: 13px; font-weight: 600; }
-  .funnel-pct { font-size: 10px; color: var(--text-3); }
+  .funnel       { display: flex; gap: 3px; align-items: flex-end; height: 100px; }
+  .funnel-col   { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; }
+  .funnel-bar   { width: 100%; border-radius: 3px 3px 0 0; }
+  .funnel-lbl   { font-size: 10px; color: var(--text-3); text-align: center; line-height: 1.3; }
+  .funnel-val   { font-size: 13px; font-weight: 600; }
+  .funnel-pct   { font-size: 10px; color: var(--text-3); }
 
-  /* ── RHNA progress bar ─────────────────────────────────────────────────── */
+  /* ── RHNA bar ── */
   .rhna-bar-wrap { display: flex; align-items: center; gap: 10px; margin-bottom: 1.25rem; }
-  .rhna-track { flex: 1; height: 10px; background: var(--border); border-radius: 5px; overflow: hidden; }
-  .rhna-fill  { height: 100%; border-radius: 5px; }
-  .rhna-label { font-size: 12px; color: var(--text-2); white-space: nowrap; min-width: 120px; text-align: right; }
+  .rhna-track    { flex: 1; height: 10px; background: var(--bg-3); border-radius: 5px; overflow: hidden; }
+  .rhna-fill     { height: 100%; border-radius: 5px; }
+  .rhna-label    { font-size: 12px; color: var(--text-2); white-space: nowrap; min-width: 120px; text-align: right; }
 
-  /* ── Detail rows ───────────────────────────────────────────────────────── */
+  /* ── Detail rows ── */
   .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; margin-bottom: 1rem; }
   @media (max-width: 600px) { .detail-grid { grid-template-columns: 1fr; } }
   .detail-section-title { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--text-3); margin-bottom: 8px; }
@@ -160,23 +135,15 @@
   .kv-key { color: var(--text-2); }
   .kv-val { font-weight: 500; text-align: right; }
 
-  /* ── ADU highlight ─────────────────────────────────────────────────────── */
-  .adu-panel {
-    background: var(--bg-2); border: 1px solid var(--border);
-    border-radius: var(--radius); padding: 12px 14px; margin-bottom: 1rem;
-  }
+  /* ── ADU panel ── */
+  .adu-panel { background: var(--bg-2); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; margin-bottom: 1rem; }
   .adu-panel h3 { font-size: 13px; font-weight: 600; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
   .adu-violation { color: var(--red-text); font-size: 12px; margin-top: 4px; }
 
-  /* ── Warning box ───────────────────────────────────────────────────────── */
-  .warn-box {
-    background: var(--amber-bg); border: 1px solid var(--amber-bar);
-    border-radius: var(--radius); padding: 10px 14px;
-    font-size: 12px; color: var(--amber-text); margin-top: 1rem;
-    line-height: 1.5;
-  }
+  /* ── Callout boxes ── */
+  .warn-box { background: var(--amber-bg); border: 1px solid var(--amber-bar); border-radius: var(--radius); padding: 10px 14px; font-size: 12px; color: var(--amber-text); margin-top: 1rem; line-height: 1.5; }
 
-  /* ── Legend / footer ───────────────────────────────────────────────────── */
+  /* ── Legend / footer ── */
   .legend { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 1.5rem; }
   .legend-item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-3); }
 
@@ -185,36 +152,51 @@
   .methodology p, .methodology li { font-size: 13px; color: var(--text-2); line-height: 1.7; margin-bottom: .5rem; }
   .methodology ul { padding-left: 1.25rem; }
 
-  .site-footer { margin-top: 2rem; font-size: 12px; color: var(--text-3); }
+  .site-footer { margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--border); font-size: 12px; color: var(--text-3); }
   .site-footer a { color: var(--blue-text); text-decoration: none; }
   .site-footer a:hover { text-decoration: underline; }
 
-  /* ── Map ───────────────────────────────────────────────────────────────── */
+  /* ── Map ── */
   .map-section { margin-bottom: 2rem; }
-  .map-section h2 { font-size: 16px; font-weight: 500; margin-bottom: 4px; }
+  .map-section h2 { font-size: 16px; font-weight: 600; margin-bottom: 4px; }
   .map-section .map-sub { font-size: 13px; color: var(--text-2); margin-bottom: 1rem; }
-  #map-svg { width: 100%; display: block; }
-  .map-city { cursor: pointer; stroke-width: 0.5px; transition: opacity 0.1s; }
-  .map-city:hover { opacity: 0.8; stroke-width: 1.5px; }
-  .map-city.map-selected { stroke: var(--text); stroke-width: 2px; }
+  #map-svg { width: 100%; display: block; border-radius: var(--radius-lg); overflow: hidden; }
+  .map-city { cursor: pointer; transition: opacity 0.1s; }
+  .map-city:hover { opacity: 0.8; }
   .map-tooltip {
-    position: fixed; pointer-events: none;
-    background: var(--color-background-primary, #fff);
-    border: 0.5px solid var(--border-2); border-radius: 8px;
-    padding: 8px 12px; font-size: 12px; font-family: var(--font);
-    color: var(--text); max-width: 180px; z-index: 100;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+    position: fixed; pointer-events: none; z-index: 100;
+    background: var(--bg); border: 1px solid var(--border-2);
+    border-radius: var(--radius); padding: 8px 12px;
+    font-size: 12px; font-family: var(--font); color: var(--text);
+    max-width: 180px; line-height: 1.5;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
   }
-  .map-tooltip strong { display: block; font-size: 13px; margin-bottom: 3px; }
-  .map-no-data { fill: var(--bg-3); }
-  .map-legend { display: flex; align-items: center; gap: 12px; margin-top: 10px; flex-wrap: wrap; }
+  .map-tooltip strong { display: block; font-size: 13px; font-weight: 600; margin-bottom: 3px; }
+  .map-legend { display: flex; align-items: center; gap: 14px; margin-top: 10px; flex-wrap: wrap; }
   .map-legend-item { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--text-2); }
-  .map-legend-swatch { width: 14px; height: 14px; border-radius: 3px; flex-shrink: 0; }
-  .map-no-geo { background: var(--bg-2); border: 1px dashed var(--border-2);
-    border-radius: var(--radius-lg); padding: 2rem; text-align: center;
-    font-size: 13px; color: var(--text-3); margin-bottom: 2rem; }
+  .map-legend-swatch { width: 13px; height: 13px; border-radius: 3px; flex-shrink: 0; }
+  .map-no-geo { background: var(--bg-2); border: 1px dashed var(--border-2); border-radius: var(--radius-lg); padding: 2rem; text-align: center; font-size: 13px; color: var(--text-3); margin-bottom: 2rem; }
 
-  /* ── Loading / error ───────────────────────────────────────────────────── */
+  /* ── Map mobile ── */
+  .map-tap-hint { font-size: 12px; color: var(--text-3); margin-bottom: 8px; display: none; }
+  .map-info-strip {
+    display: none; margin-top: 10px;
+    background: var(--bg-2); border-radius: var(--radius);
+    padding: 10px 14px; font-size: 13px;
+  }
+  .map-info-strip .mis-name { font-weight: 600; font-size: 14px; margin-bottom: 4px; }
+  .map-info-strip .mis-stats { display: flex; gap: 14px; flex-wrap: wrap; }
+  .map-info-strip .mis-stat { color: var(--text-2); }
+  .map-info-strip .mis-stat strong { color: var(--text); font-weight: 600; }
+  .map-info-strip .mis-open { font-size: 12px; color: var(--blue-text); margin-top: 6px; cursor: pointer; }
+  @media (max-width: 600px) {
+    .map-tap-hint { display: block; }
+    #map-svg { border-radius: var(--radius); }
+    .map-legend { gap: 10px; }
+    .map-legend-item { font-size: 11px; }
+  }
+
+  /* ── Loading / error ── */
   .loading { text-align: center; padding: 3rem; color: var(--text-3); }
   .error { background: var(--red-bg); color: var(--red-text); border-radius: var(--radius); padding: 1rem; margin: 1rem 0; font-size: 13px; }
 </style>
@@ -332,14 +314,17 @@ function headerHTML() {
   const meta = DATA.metadata;
   const yr = meta.latest_apr_year_table_a ?? '?';
   return `
+  <div class="site-eyebrow">
+    <a href="https://www.peninsulaforeveryone.org" target="_blank" rel="noopener">Peninsula for Everyone</a>
+    · Accountability tool
+  </div>
   <header class="site-header">
     <h1>Peninsula Permit Tracker</h1>
     <p>How long does your city take to approve housing?
-       Ranked by friction score across ${meta.jurisdiction_count} Peninsula jurisdictions.</p>
-    <p class="org">A project of <a href="https://www.peninsulaforeveryone.org" target="_blank" rel="noopener">Peninsula for Everyone</a></p>
+       Friction scores, RHNA progress, and ADU compliance across ${meta.jurisdiction_count} Peninsula jurisdictions.</p>
     <p class="freshness">
-      Data: <a href="${meta.source_url}" target="_blank" rel="noopener">HCD Housing Element APR</a>,
-      through reporting year ${yr} · Updated ${fmtDate(meta.generated_at)}
+      Data: <a href="${meta.source_url}" target="_blank" rel="noopener">HCD Housing Element APR</a>
+      through ${yr} · Updated ${fmtDate(meta.generated_at)}
     </p>
   </header>`;
 }
@@ -610,17 +595,18 @@ function drilldownHTML(c) {
 }
 
 function mapHTML() {
-  if (!GEO) {
+  if (!GEO || !GEO.features || GEO.features.length === 0) {
     return `<div class="map-no-geo">
-      <p>Map not available — run <code>make run</code> to download city boundaries,<br>
-      or run <code>python -m pipeline.run_all --step boundaries</code>.</p>
+      <p>Map not available — run:<br><code>python -m pipeline.run_all --step boundaries --force</code></p>
     </div>`;
   }
   return `
   <div class="map-section">
     <h2>Friction score by city</h2>
     <p class="map-sub">Click a city to see details. Higher score = more obstructive to housing.</p>
+    <p class="map-tap-hint">Tap a city to see its score.</p>
     <svg id="map-svg" aria-label="Choropleth map of Peninsula cities colored by housing permit friction score"></svg>
+    <div id="map-info-strip" class="map-info-strip" aria-live="polite"></div>
     <div class="map-legend">
       <div class="map-legend-item"><div class="map-legend-swatch" style="background:#e24b4a"></div>High friction (65–100)</div>
       <div class="map-legend-item"><div class="map-legend-swatch" style="background:#ba7517"></div>Medium (35–64)</div>
@@ -632,8 +618,9 @@ function mapHTML() {
 
 function renderMap() {
   const svg = document.getElementById('map-svg');
-  if (!svg || !GEO) return;
+  if (!svg || !GEO || !GEO.features || GEO.features.length === 0) return;
 
+  const isMobile = window.innerWidth <= 600;
   const scoreMap = {};
   (DATA.cities || []).forEach(c => { scoreMap[c.city] = c; });
 
@@ -643,15 +630,9 @@ function renderMap() {
     if (score >= 35) return '#ba7517';
     return '#639922';
   }
-  function scoreColorLight(score) {
-    if (score == null) return '#eeece7';
-    if (score >= 65) return '#f7c1c1';
-    if (score >= 35) return '#fac775';
-    return '#c0dd97';
-  }
 
   const W = svg.parentElement.clientWidth || 680;
-  const H = Math.round(W * 0.72);
+  const H = Math.round(W * (isMobile ? 1.1 : 0.72));
   svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
   svg.setAttribute('height', H);
 
@@ -729,14 +710,31 @@ function renderMap() {
   const ns = 'http://www.w3.org/2000/svg';
   svg.innerHTML = '';
 
-  // Sort: San Mateo County (large polygon) first so cities render on top
-  const sorted = [...GEO.features].sort((a,b) => {
-    if (a.properties.name === 'San Mateo County') return -1;
-    if (b.properties.name === 'San Mateo County') return 1;
-    return 0;
-  });
+  // Incorporated cities only — exclude county boundary (it encompasses all cities
+  // and breaks both projection bounds and visual layering)
+  const cityFeatures = GEO.features.filter(f => f.properties?.name !== 'San Mateo County');
 
-  sorted.forEach(feat => {
+  // Diagnostic — visible in browser console
+  console.log('[PermitTracker] GEO features:', GEO.features.length, GEO.features.map(f => f.properties?.name));
+  console.log('[PermitTracker] city features after filter:', cityFeatures.length);
+
+  if (cityFeatures.length === 0) return;  // caught by mapHTML guard above
+
+  // Recompute bounds from city features only (not the large county polygon)
+  minLng = Infinity; maxLng = -Infinity; minLat = Infinity; maxLat = -Infinity;
+  cityFeatures.forEach(f => { if (f.geometry) scanCoords(f.geometry.coordinates); });
+  minLng -= pad; maxLng += pad; minLat -= pad; maxLat += pad;
+
+  // Neutral background rect
+  const bg = document.createElementNS(ns, 'rect');
+  bg.setAttribute('width', W); bg.setAttribute('height', H);
+  bg.setAttribute('fill', '#e8e4db');
+  svg.appendChild(bg);
+
+  // Stroke color from current theme
+  const strokeColor = '#ffffff';
+
+  cityFeatures.forEach(feat => {
     const name = feat.properties?.name;
     const cityData = scoreMap[name];
     const score = cityData?.friction_score;
@@ -746,59 +744,99 @@ function renderMap() {
     const path = document.createElementNS(ns, 'path');
     path.setAttribute('d', d);
     path.setAttribute('fill', scoreColor(score));
-    path.setAttribute('stroke', getComputedStyle(document.documentElement)
-      .getPropertyValue('--bg') || '#fff');
-    path.setAttribute('stroke-width', name === 'San Mateo County' ? '0.3' : '0.7');
-    path.setAttribute('fill-opacity', name === 'San Mateo County' ? '0.25' : '0.85');
+    path.setAttribute('stroke', strokeColor);
+    path.setAttribute('stroke-width', '0.8');
+    path.setAttribute('fill-opacity', '0.88');
     path.classList.add('map-city');
-    if (state.selectedCity === name) path.classList.add('map-selected');
+    if (state.selectedCity === name) {
+      path.setAttribute('stroke', '#1c1b18');
+      path.setAttribute('stroke-width', '2');
+    }
 
-    path.addEventListener('mouseenter', e => {
-      path.setAttribute('fill-opacity', '1');
-      const rhna = cityData?.rhna_progress_pct;
-      const days = cityData?.median_days_to_permit;
-      tooltip.innerHTML = `<strong>${name}</strong>` +
-        (score != null ? `Friction score: <b>${score}/100</b><br>` : '') +
-        (rhna != null ? `RHNA progress: <b>${rhna}%</b><br>` : '') +
-        (days != null ? `Median days: <b>${days}d</b>` : '');
-      tooltip.style.display = 'block';
-    });
-    path.addEventListener('mousemove', e => {
-      tooltip.style.left = (e.clientX + 14) + 'px';
-      tooltip.style.top  = (e.clientY - 10) + 'px';
-    });
-    path.addEventListener('mouseleave', () => {
-      path.setAttribute('fill-opacity', name === 'San Mateo County' ? '0.25' : '0.85');
-      tooltip.style.display = 'none';
-    });
-    path.addEventListener('click', () => {
-      if (name !== 'San Mateo County') selectCity(name);
-    });
+    if (!isMobile) {
+      path.addEventListener('mouseenter', e => {
+        path.setAttribute('fill-opacity', '1');
+        path.setAttribute('stroke-width', state.selectedCity === name ? '2' : '1.5');
+        const rhna = cityData?.rhna_progress_pct;
+        const days = cityData?.median_days_to_permit;
+        tooltip.innerHTML = '<strong>' + name + '</strong>' +
+          (score != null ? 'Friction score: <b>' + score + '/100</b><br>' : '') +
+          (rhna != null ? 'RHNA progress: <b>' + rhna + '%</b><br>' : '') +
+          (days != null ? 'Median days: <b>' + days + 'd</b>' : '');
+        tooltip.style.display = 'block';
+      });
+      path.addEventListener('mousemove', e => {
+        tooltip.style.left = (e.clientX + 14) + 'px';
+        tooltip.style.top  = (e.clientY - 10) + 'px';
+      });
+      path.addEventListener('mouseleave', () => {
+        path.setAttribute('fill-opacity', '0.88');
+        path.setAttribute('stroke-width', state.selectedCity === name ? '2' : '0.8');
+        tooltip.style.display = 'none';
+      });
+      path.addEventListener('click', () => selectCity(name));
+    } else {
+      // Mobile: tap shows info strip, double-tap opens drilldown
+      path.addEventListener('touchend', e => {
+        e.preventDefault();
+        const alreadySelected = state.selectedCity === name;
+        showMapInfoStrip(name, cityData, score);
+        if (alreadySelected) {
+          selectCity(name);
+          setTimeout(() => {
+            const dd = document.querySelector('.drilldown');
+            if (dd) dd.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }, 100);
+        } else {
+          // Just highlight — don't open drilldown yet
+          state.selectedCity = name;
+          renderMap();
+        }
+      });
+    }
     svg.appendChild(path);
 
-    // Label for non-tiny cities (skip county outline label)
-    if (name !== 'San Mateo County' && feat.geometry) {
+    // Labels — hidden on mobile (too small/overlapping)
+    if (!isMobile && feat.geometry) {
       const [cx, cy] = centroid(feat.geometry);
       const text = document.createElementNS(ns, 'text');
       text.setAttribute('x', cx.toFixed(1));
       text.setAttribute('y', cy.toFixed(1));
       text.setAttribute('text-anchor', 'middle');
       text.setAttribute('dominant-baseline', 'middle');
-      text.setAttribute('fill', score >= 65 ? '#7a1e1e' : score >= 35 ? '#5a3006' : '#1e3a0a');
+      // Dark label on light fill colors
+      const labelColor = score >= 65 ? '#5a1010' : score >= 35 ? '#422004' : '#1a3808';
+      text.setAttribute('fill', labelColor);
       text.setAttribute('font-size', '9');
       text.setAttribute('font-family', 'system-ui,sans-serif');
       text.setAttribute('pointer-events', 'none');
-      text.setAttribute('font-weight', '500');
-      // Short labels for tiny cities
+      text.setAttribute('font-weight', '600');
       const label = name === 'South San Francisco' ? 'SSF'
         : name === 'East Palo Alto' ? 'EPA'
         : name === 'Half Moon Bay' ? 'HMB'
-        : name === 'San Mateo County' ? ''
         : name;
       text.textContent = label;
       svg.appendChild(text);
     }
   });
+}
+
+function showMapInfoStrip(name, cityData, score) {
+  const strip = document.getElementById('map-info-strip');
+  if (!strip) return;
+  const rhna = cityData?.rhna_progress_pct;
+  const days = cityData?.median_days_to_permit;
+  const scoreColor = score >= 65 ? '#d94040' : score >= 35 ? '#b87316' : '#4e8a16';
+  strip.style.display = 'block';
+  strip.innerHTML = `
+    <div class="mis-name">${name}</div>
+    <div class="mis-stats">
+      ${score != null ? `<div class="mis-stat">Score: <strong style="color:${scoreColor}">${score}/100</strong></div>` : ''}
+      ${rhna != null ? `<div class="mis-stat">RHNA: <strong>${rhna}%</strong></div>` : ''}
+      ${days != null ? `<div class="mis-stat">Median: <strong>${days}d</strong></div>` : ''}
+    </div>
+    <div class="mis-open" onclick="selectCity('${name}')">Tap again for full details →</div>
+  `;
 }
 
 function methodologyHTML() {
