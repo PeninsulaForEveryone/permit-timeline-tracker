@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Peninsula Permit Tracker</title>
-<meta name="description" content="Median housing permit approval times and pipeline conversion rates across San Mateo County cities. Public accountability tool by Peninsula for Everyone." />
+<meta name="description" content="Median housing permit approval times and RHNA progress across San Mateo County Peninsula cities. Public accountability tool by Peninsula for Everyone." />
 <meta property="og:title" content="Peninsula Permit Tracker" />
 <meta property="og:description" content="How long does your city take to approve housing? See rankings, RHNA progress, and ADU compliance across the Peninsula." />
 <meta property="og:type" content="website" />
@@ -189,6 +189,31 @@
   .site-footer a { color: var(--blue-text); text-decoration: none; }
   .site-footer a:hover { text-decoration: underline; }
 
+  /* ── Map ───────────────────────────────────────────────────────────────── */
+  .map-section { margin-bottom: 2rem; }
+  .map-section h2 { font-size: 16px; font-weight: 500; margin-bottom: 4px; }
+  .map-section .map-sub { font-size: 13px; color: var(--text-2); margin-bottom: 1rem; }
+  #map-svg { width: 100%; display: block; }
+  .map-city { cursor: pointer; stroke-width: 0.5px; transition: opacity 0.1s; }
+  .map-city:hover { opacity: 0.8; stroke-width: 1.5px; }
+  .map-city.map-selected { stroke: var(--text); stroke-width: 2px; }
+  .map-tooltip {
+    position: fixed; pointer-events: none;
+    background: var(--color-background-primary, #fff);
+    border: 0.5px solid var(--border-2); border-radius: 8px;
+    padding: 8px 12px; font-size: 12px; font-family: var(--font);
+    color: var(--text); max-width: 180px; z-index: 100;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+  }
+  .map-tooltip strong { display: block; font-size: 13px; margin-bottom: 3px; }
+  .map-no-data { fill: var(--bg-3); }
+  .map-legend { display: flex; align-items: center; gap: 12px; margin-top: 10px; flex-wrap: wrap; }
+  .map-legend-item { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--text-2); }
+  .map-legend-swatch { width: 14px; height: 14px; border-radius: 3px; flex-shrink: 0; }
+  .map-no-geo { background: var(--bg-2); border: 1px dashed var(--border-2);
+    border-radius: var(--radius-lg); padding: 2rem; text-align: center;
+    font-size: 13px; color: var(--text-3); margin-bottom: 2rem; }
+
   /* ── Loading / error ───────────────────────────────────────────────────── */
   .loading { text-align: center; padding: 3rem; color: var(--text-3); }
   .error { background: var(--red-bg); color: var(--red-text); border-radius: var(--radius); padding: 1rem; margin: 1rem 0; font-size: 13px; }
@@ -202,6 +227,7 @@
 <script>
 // ── State ───────────────────────────────────────────────────────────────────
 let DATA = null;
+let GEO = null;   // boundaries.geojson FeatureCollection
 let state = {
   unitFilter: 'all',   // 'all' | 'adu' | 'non_adu'
   sortKey: 'friction_score',
@@ -210,14 +236,18 @@ let state = {
 };
 
 // ── Boot ────────────────────────────────────────────────────────────────────
-fetch('data/viz_data.json')
-  .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
-  .then(d => { DATA = d; render(); })
-  .catch(e => {
-    document.getElementById('app').innerHTML =
-      `<div class="error">Could not load viz_data.json: ${e.message}<br>
-      Run <code>make run</code> to generate it, or check the GitHub Actions workflow.</div>`;
-  });
+Promise.all([
+  fetch('data/viz_data.json').then(r => { if (!r.ok) throw new Error(`viz_data.json: HTTP ${r.status}`); return r.json(); }),
+  fetch('data/boundaries.geojson').then(r => r.ok ? r.json() : null).catch(() => null),
+]).then(([data, geo]) => {
+  DATA = data;
+  GEO = geo;
+  render();
+}).catch(e => {
+  document.getElementById('app').innerHTML =
+    `<div class="error">Could not load viz_data.json: ${e.message}<br>
+    Run <code>make run</code> to generate it, or check the GitHub Actions workflow.</div>`;
+});
 
 // ── Main render ──────────────────────────────────────────────────────────────
 function render() {
@@ -225,7 +255,7 @@ function render() {
   const cities = filteredAndSorted();
   const sel = state.selectedCity ? cities.find(c => c.city === state.selectedCity) : null;
 
-  app.innerHTML = headerHTML() + controlsHTML() + legendHTML() + tableHTML(cities) +
+  app.innerHTML = headerHTML() + mapHTML() + controlsHTML() + legendHTML() + tableHTML(cities) +
     (sel ? drilldownHTML(sel) : '') + methodologyHTML() + footerHTML();
 
   // Re-attach after re-render
@@ -237,6 +267,7 @@ function render() {
     sel.addEventListener('change', e => setSort(e.target.value)));
   app.querySelectorAll('[data-city]').forEach(el =>
     el.addEventListener('click', () => selectCity(el.dataset.city)));
+  if (GEO) renderMap();
   const closeBtn = app.querySelector('[data-close-drilldown]');
   if (closeBtn) closeBtn.addEventListener('click', () => { state.selectedCity = null; render(); });
 
@@ -258,7 +289,7 @@ function filteredAndSorted() {
       _display_apps:    c.adu?.apps ?? 0,
       _display_permits: c.adu?.permits ?? 0,
       _display_days:    c.adu?.median_days,
-      _display_conv:    c.adu?.permits > 0 && c.adu?.apps > 0
+      _display_ent_rate: c.adu?.permits > 0 && c.adu?.apps > 0
                           ? +(c.adu.permits / c.adu.apps * 100).toFixed(1) : null,
     }));
   } else {
@@ -267,7 +298,7 @@ function filteredAndSorted() {
       _display_apps:    c.apps_total,
       _display_permits: c.permits_total,
       _display_days:    c.median_days_to_permit,
-      _display_conv:    c.conversion_rate_pct,
+      _display_ent_rate: c.entitlement_rate_pct,
     }));
   }
 
@@ -276,7 +307,7 @@ function filteredAndSorted() {
     let av = a[key] ?? (state.sortDir < 0 ? -Infinity : Infinity);
     let bv = b[key] ?? (state.sortDir < 0 ? -Infinity : Infinity);
     if (key === 'city') return state.sortDir * av.localeCompare(bv);
-    if (key === '_display_conv') { av = a._display_conv ?? -Infinity; bv = b._display_conv ?? -Infinity; }
+    if (key === '_display_ent_rate') { av = a._display_ent_rate ?? -Infinity; bv = b._display_ent_rate ?? -Infinity; }
     if (key === '_display_days') { av = a._display_days ?? Infinity; bv = b._display_days ?? Infinity; }
     if (key === 'rhna_progress_pct') { av = a.rhna_progress_pct ?? -Infinity; bv = b.rhna_progress_pct ?? -Infinity; }
     return state.sortDir * (bv - av);
@@ -352,9 +383,9 @@ function tableHTML(cities) {
       <th data-sort="friction_score" class="${s==='friction_score'?'sorted':''}">Friction score ${arrow('friction_score')}</th>
       <th data-sort="city" class="${s==='city'?'sorted':''}">City ${arrow('city')}</th>
       <th data-sort="rhna_progress_pct" class="${s==='rhna_progress_pct'?'sorted':''}">RHNA progress ${arrow('rhna_progress_pct')}</th>
-      <th data-sort="_display_conv" class="${s==='_display_conv'?'sorted':''}">App → permit rate ${arrow('_display_conv')}</th>
+      <th data-sort="_display_ent_rate" class="${s==='_display_ent_rate'?'sorted':''}">Entitlement rate ${arrow('_display_ent_rate')}</th>
       <th data-sort="_display_days" class="${s==='_display_days'?'sorted':''}">
-        ${isAdu ? 'Median days (60-day limit)' : 'Median days to permit'} ${arrow('_display_days')}
+        ${isAdu ? 'ADU median days (60-day limit)' : 'Median days to permit'} ${arrow('_display_days')}
       </th>
       <th>Data source</th>
       <th></th>
@@ -366,8 +397,8 @@ function tableHTML(cities) {
       const rhna = c.rhna_progress_pct;
       const rhnaBadge = rhna == null ? 'badge-gray' : rhna >= 60 ? 'badge-green' : rhna >= 30 ? 'badge-amber' : 'badge-red';
       const rhnaLabel = rhna != null ? `${rhna}%` : '—';
-      const conv = c._display_conv;
-      const convBadge = conv == null ? 'badge-gray' : conv >= 55 ? 'badge-green' : conv >= 30 ? 'badge-amber' : 'badge-red';
+      const conv = c._display_ent_rate;
+      const convBadge = conv == null ? 'badge-gray' : conv >= 70 ? 'badge-green' : conv >= 40 ? 'badge-amber' : 'badge-red';
       const convLabel = conv != null ? `${conv}%` : '<span class="na-val">no data</span>';
       const days = c._display_days;
       const daysBadge = days == null ? 'badge-gray'
@@ -470,8 +501,8 @@ function drilldownHTML(c) {
         <div class="metric-sub">${c.rhna_permitted} of ${(c.rhna_target||0).toLocaleString()} units</div>
       </div>
       <div class="metric-card">
-        <div class="metric-label">Permit conversion rate</div>
-        <div class="metric-value">${c.conversion_rate_pct != null ? c.conversion_rate_pct + '%' : '—'}</div>
+        <div class="metric-label">Entitlement rate</div>
+        <div class="metric-value">${c.entitlement_rate_pct != null ? c.entitlement_rate_pct + '%' : '—'}</div>
         <div class="metric-sub">apps reaching permit</div>
       </div>
     </div>
@@ -562,6 +593,13 @@ function drilldownHTML(c) {
       </div>
     </div>
 
+    ${c.rhna_target >= 4000 && (c.rhna_progress_pct ?? 0) < 30 ? `
+    <div class="warn-box" style="background:var(--blue-bg);border-color:var(--blue-text);color:var(--blue-text)">
+      ℹ Early-cycle context: ${c.city}'s RHNA target (${c.rhna_target.toLocaleString()} units) is one of the largest on the Peninsula.
+      Cities with large targets are structurally penalized early in the 8-year cycle (2023–2031) — even strong production
+      registers as low progress when the denominator is very large. This score will improve as permit counts accumulate.
+    </div>` : ''}
+
     ${appDatePct != null && appDatePct < 50 ? `
     <div class="warn-box">
       ⚠ ${c.city} reported application dates in only ${appDatePct}% of rows.
@@ -569,6 +607,198 @@ function drilldownHTML(c) {
       this city did not fully report required permit timeline data to HCD.
     </div>` : ''}
   </div>`;
+}
+
+function mapHTML() {
+  if (!GEO) {
+    return `<div class="map-no-geo">
+      <p>Map not available — run <code>make run</code> to download city boundaries,<br>
+      or run <code>python -m pipeline.run_all --step boundaries</code>.</p>
+    </div>`;
+  }
+  return `
+  <div class="map-section">
+    <h2>Friction score by city</h2>
+    <p class="map-sub">Click a city to see details. Higher score = more obstructive to housing.</p>
+    <svg id="map-svg" aria-label="Choropleth map of Peninsula cities colored by housing permit friction score"></svg>
+    <div class="map-legend">
+      <div class="map-legend-item"><div class="map-legend-swatch" style="background:#e24b4a"></div>High friction (65–100)</div>
+      <div class="map-legend-item"><div class="map-legend-swatch" style="background:#ba7517"></div>Medium (35–64)</div>
+      <div class="map-legend-item"><div class="map-legend-swatch" style="background:#639922"></div>Low friction (0–34)</div>
+      <div class="map-legend-item"><div class="map-legend-swatch" style="background:#d3d1c7"></div>No data</div>
+    </div>
+  </div>`;
+}
+
+function renderMap() {
+  const svg = document.getElementById('map-svg');
+  if (!svg || !GEO) return;
+
+  const scoreMap = {};
+  (DATA.cities || []).forEach(c => { scoreMap[c.city] = c; });
+
+  function scoreColor(score) {
+    if (score == null) return '#d3d1c7';
+    if (score >= 65) return '#e24b4a';
+    if (score >= 35) return '#ba7517';
+    return '#639922';
+  }
+  function scoreColorLight(score) {
+    if (score == null) return '#eeece7';
+    if (score >= 65) return '#f7c1c1';
+    if (score >= 35) return '#fac775';
+    return '#c0dd97';
+  }
+
+  const W = svg.parentElement.clientWidth || 680;
+  const H = Math.round(W * 0.72);
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  svg.setAttribute('height', H);
+
+  // Compute bounding box from GeoJSON
+  let minLng = Infinity, maxLng = -Infinity, minLat = Infinity, maxLat = -Infinity;
+  function scanCoords(coords) {
+    if (typeof coords[0] === 'number') {
+      minLng = Math.min(minLng, coords[0]); maxLng = Math.max(maxLng, coords[0]);
+      minLat = Math.min(minLat, coords[1]); maxLat = Math.max(maxLat, coords[1]);
+    } else { coords.forEach(scanCoords); }
+  }
+  GEO.features.forEach(f => { if (f.geometry) scanCoords(f.geometry.coordinates); });
+
+  // Pad bounds
+  const pad = 0.05;
+  minLng -= pad; maxLng += pad; minLat -= pad; maxLat += pad;
+
+  // Mercator projection fitted to bounds
+  function project(lng, lat) {
+    // Simple equirectangular with aspect correction — good enough for small region
+    const cosLat = Math.cos((minLat + maxLat) / 2 * Math.PI / 180);
+    const x = (lng - minLng) / (maxLng - minLng) * W;
+    const latRange = maxLat - minLat;
+    const lngRange = (maxLng - minLng) * cosLat;
+    const scale = Math.min(W / lngRange, H / latRange);
+    const projW = lngRange * scale;
+    const projH = latRange * scale;
+    const offX = (W - projW) / 2;
+    const offY = (H - projH) / 2;
+    const px = offX + (lng - minLng) * cosLat * scale;
+    const py = offY + (maxLat - lat) * scale;
+    return [px, py];
+  }
+
+  function coordsToPath(coords) {
+    return coords.map((ring, ri) =>
+      ring.map((pt, i) => {
+        const [x, y] = project(pt[0], pt[1]);
+        return (i === 0 ? 'M' : 'L') + x.toFixed(1) + ',' + y.toFixed(1);
+      }).join(' ') + ' Z'
+    ).join(' ');
+  }
+
+  function featurePath(geom) {
+    if (!geom) return '';
+    if (geom.type === 'Polygon') return coordsToPath(geom.coordinates);
+    if (geom.type === 'MultiPolygon') return geom.coordinates.map(coordsToPath).join(' ');
+    return '';
+  }
+
+  function centroid(geom) {
+    // Simple centroid of bounding box midpoint for label placement
+    let lngs = [], lats = [];
+    function collect(coords) {
+      if (typeof coords[0] === 'number') { lngs.push(coords[0]); lats.push(coords[1]); }
+      else coords.forEach(collect);
+    }
+    if (geom) collect(geom.coordinates);
+    const lng = lngs.reduce((a,b)=>a+b,0)/lngs.length;
+    const lat = lats.reduce((a,b)=>a+b,0)/lats.length;
+    return project(lng, lat);
+  }
+
+  // Tooltip
+  let tooltip = document.getElementById('map-tooltip');
+  if (!tooltip) {
+    tooltip = document.createElement('div');
+    tooltip.id = 'map-tooltip';
+    tooltip.className = 'map-tooltip';
+    tooltip.style.display = 'none';
+    document.body.appendChild(tooltip);
+  }
+
+  // Render
+  const ns = 'http://www.w3.org/2000/svg';
+  svg.innerHTML = '';
+
+  // Sort: San Mateo County (large polygon) first so cities render on top
+  const sorted = [...GEO.features].sort((a,b) => {
+    if (a.properties.name === 'San Mateo County') return -1;
+    if (b.properties.name === 'San Mateo County') return 1;
+    return 0;
+  });
+
+  sorted.forEach(feat => {
+    const name = feat.properties?.name;
+    const cityData = scoreMap[name];
+    const score = cityData?.friction_score;
+    const d = featurePath(feat.geometry);
+    if (!d) return;
+
+    const path = document.createElementNS(ns, 'path');
+    path.setAttribute('d', d);
+    path.setAttribute('fill', scoreColor(score));
+    path.setAttribute('stroke', getComputedStyle(document.documentElement)
+      .getPropertyValue('--bg') || '#fff');
+    path.setAttribute('stroke-width', name === 'San Mateo County' ? '0.3' : '0.7');
+    path.setAttribute('fill-opacity', name === 'San Mateo County' ? '0.25' : '0.85');
+    path.classList.add('map-city');
+    if (state.selectedCity === name) path.classList.add('map-selected');
+
+    path.addEventListener('mouseenter', e => {
+      path.setAttribute('fill-opacity', '1');
+      const rhna = cityData?.rhna_progress_pct;
+      const days = cityData?.median_days_to_permit;
+      tooltip.innerHTML = `<strong>${name}</strong>` +
+        (score != null ? `Friction score: <b>${score}/100</b><br>` : '') +
+        (rhna != null ? `RHNA progress: <b>${rhna}%</b><br>` : '') +
+        (days != null ? `Median days: <b>${days}d</b>` : '');
+      tooltip.style.display = 'block';
+    });
+    path.addEventListener('mousemove', e => {
+      tooltip.style.left = (e.clientX + 14) + 'px';
+      tooltip.style.top  = (e.clientY - 10) + 'px';
+    });
+    path.addEventListener('mouseleave', () => {
+      path.setAttribute('fill-opacity', name === 'San Mateo County' ? '0.25' : '0.85');
+      tooltip.style.display = 'none';
+    });
+    path.addEventListener('click', () => {
+      if (name !== 'San Mateo County') selectCity(name);
+    });
+    svg.appendChild(path);
+
+    // Label for non-tiny cities (skip county outline label)
+    if (name !== 'San Mateo County' && feat.geometry) {
+      const [cx, cy] = centroid(feat.geometry);
+      const text = document.createElementNS(ns, 'text');
+      text.setAttribute('x', cx.toFixed(1));
+      text.setAttribute('y', cy.toFixed(1));
+      text.setAttribute('text-anchor', 'middle');
+      text.setAttribute('dominant-baseline', 'middle');
+      text.setAttribute('fill', score >= 65 ? '#7a1e1e' : score >= 35 ? '#5a3006' : '#1e3a0a');
+      text.setAttribute('font-size', '9');
+      text.setAttribute('font-family', 'system-ui,sans-serif');
+      text.setAttribute('pointer-events', 'none');
+      text.setAttribute('font-weight', '500');
+      // Short labels for tiny cities
+      const label = name === 'South San Francisco' ? 'SSF'
+        : name === 'East Palo Alto' ? 'EPA'
+        : name === 'Half Moon Bay' ? 'HMB'
+        : name === 'San Mateo County' ? ''
+        : name;
+      text.textContent = label;
+      svg.appendChild(text);
+    }
+  });
 }
 
 function methodologyHTML() {
@@ -603,5 +833,6 @@ function fmtDate(iso) {
   catch { return iso; }
 }
 </script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
 </body>
 </html>

@@ -22,6 +22,11 @@ DOCS_DATA = ROOT / "docs" / "data"
 for p in [DATA_RAW, DATA_PROCESSED, DOCS_DATA]:
     p.mkdir(parents=True, exist_ok=True)
 
+# ── HTTP ─────────────────────────────────────────────────────────────────────
+
+REQUEST_TIMEOUT = 60
+HEADERS = {"User-Agent": "PeninsulaPermitTracker/1.0 (https://github.com/PeninsulaForEveryone)"}
+
 # ── HCD APR source URLs ───────────────────────────────────────────────────────
 
 # CKAN dataset ID (stable)
@@ -47,60 +52,69 @@ TABLE_A2_RAW = DATA_RAW / "hcd_apr_table_a2.csv"
 # Keys = our canonical names; values = list of known source variants.
 
 COLUMN_ALIASES = {
-    "jurisdiction": ["Jurisdiction Name", "JurisdictionName", "Jurisdiction"],
-    "reporting_year": ["Reporting Year", "ReportingYear", "Calendar Year"],
-    "project_name": ["Project Name", "ProjectName"],
-    "address": ["Street Address", "StreetAddress", "Site Address"],
+    # Canonical name          Real CSV columns, most-specific first
+    "jurisdiction": ["JURIS_NAME", "Jurisdiction Name", "JurisdictionName", "Jurisdiction"],
+    "reporting_year": ["YEAR", "Reporting Year", "ReportingYear", "Calendar Year"],
+    "project_name": ["PROJECT_NAME", "Project Name", "ProjectName"],
+    "address": ["STREET_ADDRESS", "Street Address", "StreetAddress", "Site Address"],
     "apn": ["APN", "Assessor Parcel Number"],
     "unit_category": [
-        "Unit Category Type",
-        "UnitCategoryType",
-        "Project Type Category",
-        "Unit Type",
+        "UNIT_CAT",
+        "Unit Category Type", "UnitCategoryType", "Project Type Category", "Unit Type",
     ],
     "total_proposed_units": [
-        "Total Proposed Units",
-        "TotalProposedUnits",
-        "Proposed Units",
+        "TOT_PROPOSED_UNITS", "PROJ_UNITS", "TOTAL_UNITS", "TOTAL_PROPOSED_UNITS",
+        "Total Proposed Units", "TotalProposedUnits", "Proposed Units",
     ],
     "total_approved_units": [
-        "Total Approved Units",
-        "TotalApprovedUnits",
-        "Approved Units",
+        # Table A uses TOT_APPROVED_UNITS; Table A2 uses NO_BUILDING_PERMITS
+        "NO_BUILDING_PERMITS", "TOT_APPROVED_UNITS", "APPR_UNITS", "TOTAL_APPROVED_UNITS",
+        "Total Approved Units", "TotalApprovedUnits", "Approved Units",
+    ],
+    "entitlement_units": [
+        "NO_ENTITLEMENTS",
+        "Entitlement Units", "EntitlementUnits",
     ],
     "date_application_complete": [
-        "Date Application Deemed Complete",
-        "DateApplicationDeemedComplete",
-        "Application Complete Date",
-        "Date of Application",
+        "APP_SUBMIT_DT", "APP_DEEMED_COMPLETE_DT",
+        "Date Application Deemed Complete", "DateApplicationDeemedComplete",
+        "Application Complete Date", "Date of Application",
     ],
     "date_entitlement": [
-        "Date Entitlement Approved",
-        "DateEntitlementApproved",
-        "Entitlement Date Issued",
-        "Date Entitled",
+        "ENT_APPROVE_DT1", "ENT_APPR_DT", "ENTITLE_DT", "ENT_DT",
+        "Date Entitlement Approved", "DateEntitlementApproved",
+        "Entitlement Date Issued", "Date Entitled",
     ],
     "date_building_permit": [
-        "Date Building Permit Issued",
-        "DateBuildingPermitIssued",
-        "Building Permit Date Issued",
-        "BP Issue Date",
+        "BP_ISSUE_DT1", "BP_DT", "BLDG_PERMIT_DT", "BP_ISSUE_DT",
+        "Date Building Permit Issued", "DateBuildingPermitIssued",
+        "Building Permit Date Issued", "BP Issue Date",
     ],
     "date_certificate_of_occupancy": [
-        "Date Certificate of Occupancy Issued",
-        "DateCertificateofOccupancyIssued",
-        "CO Date Issued",
-        "Certificate of Occupancy Date",
+        "CO_ISSUE_DT1", "CO_DT", "CERT_OCC_DT",
+        "Date Certificate of Occupancy Issued", "DateCertificateofOccupancyIssued",
+        "CO Date Issued", "Certificate of Occupancy Date",
     ],
     "streamlining": [
-        "Streamlining Provision",
-        "StreamliningProvision",
-        "Streamlining Application",
+        "STREAMLINING", "STREAMLINE_TYPE",
+        "Streamlining Provision", "StreamliningProvision", "Streamlining Application",
     ],
-    "very_low_income_units": ["Very Low Income Units", "VLI Units"],
-    "low_income_units": ["Low Income Units", "LI Units"],
-    "moderate_income_units": ["Moderate Income Units", "Mod Units"],
-    "above_moderate_units": ["Above Moderate Income Units", "AMI Units"],
+    "very_low_income_units": [
+        "VLOW_INCOME_DR", "VLOW_INCOME_NDR",
+        "Very Low Income Units", "VLI Units",
+    ],
+    "low_income_units": [
+        "LOW_INCOME_DR", "LOW_INCOME_NDR",
+        "Low Income Units", "LI Units",
+    ],
+    "moderate_income_units": [
+        "MOD_INCOME_DR", "MOD_INCOME_NDR",
+        "Moderate Income Units", "Mod Units",
+    ],
+    "above_moderate_units": [
+        "ABOVE_MOD_INCOME", "ABOVE_MOD_UNITS", "ABVMOD_UNITS",
+        "Above Moderate Income Units", "AMI Units",
+    ],
 }
 
 # ── Unit category classification ──────────────────────────────────────────────

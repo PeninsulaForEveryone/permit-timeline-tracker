@@ -22,7 +22,7 @@ log = logging.getLogger(__name__)
 def main():
     parser = argparse.ArgumentParser(description="Peninsula Permit Tracker pipeline")
     parser.add_argument("--force", action="store_true", help="Re-download raw data even if cached")
-    parser.add_argument("--step", choices=["fetch", "transform"], default=None,
+    parser.add_argument("--step", choices=["fetch", "boundaries", "transform"], default=None,
                         help="Run only one step (default: all)")
     parser.add_argument("--log-level", default="INFO",
                         choices=["DEBUG", "INFO", "WARNING", "ERROR"])
@@ -35,6 +35,11 @@ def main():
     )
 
     t0 = time.time()
+
+    if args.step in (None, "boundaries"):
+        log.info("=== Step 1b: Fetch city boundaries ===")
+        from pipeline.fetch_boundaries import fetch_boundaries
+        fetch_boundaries(force=args.force)
 
     if args.step in (None, "fetch"):
         log.info("=== Step 1: Fetch APR data ===")
@@ -64,7 +69,7 @@ def _print_summary(data: dict):
     print("-" * 75)
     for c in cities:
         rhna = f"{c['rhna_progress_pct']}%" if c['rhna_progress_pct'] is not None else "—"
-        conv = f"{c['conversion_rate_pct']}%" if c['conversion_rate_pct'] is not None else "—"
+        conv = f"{c.get('entitlement_rate_pct', '')}%" if c.get('entitlement_rate_pct') is not None else "—"
         days = str(c['median_days_to_permit']) if c['median_days_to_permit'] is not None else "—"
         source = "APR+portal" if c['data_source'] == 'hybrid' else "HCD APR"
         print(f"{c['rank']:<5} {c['city']:<24} {c['friction_score']:>6} {rhna:>8} {conv:>8} {days:>10} {source}")

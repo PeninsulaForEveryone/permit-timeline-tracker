@@ -33,6 +33,22 @@ from pipeline.config import (
 log = logging.getLogger(__name__)
 
 
+# ── Columns that live only in Table A2 (not Table A) ────────────────────────
+# After normalization both DataFrames have ALL canonical columns (NA where absent).
+# Merging A onto A2 would create _x/_y suffixes for these.
+# We drop them from whichever side shouldn't own them before merging.
+_A2_ONLY_DATE_COLS = ["date_entitlement", "date_building_permit", "date_certificate_of_occupancy"]
+_A_ONLY_DATE_COLS  = ["date_application_complete"]
+
+def _prep_a_for_merge(df: pd.DataFrame) -> pd.DataFrame:
+    """Drop A2-only date cols from a Table A slice before merging."""
+    return df.drop(columns=[c for c in _A2_ONLY_DATE_COLS if c in df.columns], errors="ignore")
+
+def _prep_a2_for_merge(df: pd.DataFrame, extra_cols: list) -> pd.DataFrame:
+    """Select only join keys + requested cols from a Table A2 slice."""
+    return df[extra_cols]  # caller already builds the right col list
+
+
 # ── Public API ────────────────────────────────────────────────────────────────
 
 def build_viz_data(df_a: pd.DataFrame, df_a2: pd.DataFrame) -> dict:
@@ -84,24 +100,27 @@ def write_viz_data(data: dict) -> Path:
 def _city_metrics(city: str, a: pd.DataFrame, a2: pd.DataFrame) -> dict:
     rhna_target = RHNA_6TH_CYCLE.get(city, 0)
 
-    # ── Funnel counts (all years combined) ───────────────────────────────────
-    apps_total        = int(a["total_proposed_units"].fillna(1).clip(lower=1).sum()) if not a.empty else 0
-    entitlements      = int(a2["total_approved_units"].fillna(a2.get("total_proposed_units", 0)).fillna(1).sum()) if not a2.empty else 0
+    # ── Funnel counts ────────────────────────────────────────────────────────
+    def _s(df, col):
+        if df.empty or col not in df.columns:
+            return 0
+        return int(pd.to_numeric(df[col], errors="coerce").fillna(0).sum())
 
-    # Build permits: rows in A2 where building_permit date is populated OR
-    # where the row has a non-null total_approved_units and no entitlement-only flag.
-    # Conservative: count all A2 rows as "progressed through entitlement."
-    # Separate building permit count from rows with permit date.
-    a2_with_permit = a2[a2["date_building_permit"].notna()] if not a2.empty else pd.DataFrame()
-    permits_dated   = int(a2_with_permit["total_approved_units"].fillna(1).sum())
-    permits_total   = int(a2["total_approved_units"].fillna(1).sum()) if not a2.empty else 0
+    # Table A: proposed units and entitlement approvals (discretionary applications only)
+    apps_total   = _s(a, "total_proposed_units")
+    entitlements = _s(a, "total_approved_units")   # TOT_APPROVED_UNITS in Table A
 
-    a2_with_co      = a2[a2["date_certificate_of_occupancy"].notna()] if not a2.empty else pd.DataFrame()
-    cos_total       = int(a2_with_co["total_approved_units"].fillna(1).sum())
+    # Table A2: deduplicate cross-year before counting (projects reappear each year)
+    a2d = _dedup_cross_year(a2)
+    permits_total = _s(a2d, "total_approved_units")   # NO_BUILDING_PERMITS in Table A2
+    cos_total     = _s(
+        a2d[a2d["date_certificate_of_occupancy"].notna()] if not a2d.empty else pd.DataFrame(),
+        "total_approved_units"
+    )
 
-    # 6th cycle only (2023+) for RHNA progress
-    a2_6th = a2[a2["reporting_year"] >= RHNA_CYCLE_START] if not a2.empty else pd.DataFrame()
-    rhna_permitted = int(a2_6th["total_approved_units"].fillna(1).sum())
+    # RHNA progress: 6th cycle permits using actual permit date year where available
+    a2_rhna = _rhna_slice(a2d, RHNA_CYCLE_START)
+    rhna_permitted = _s(a2_rhna, "total_approved_units")
 
     # ── ADU sub-metrics ───────────────────────────────────────────────────────
     adu_metrics = _adu_metrics(
@@ -116,10 +135,7 @@ def _city_metrics(city: str, a: pd.DataFrame, a2: pd.DataFrame) -> dict:
     date_completeness = _date_completeness(a, a2)
 
     # ── Friction score ────────────────────────────────────────────────────────
-    friction = _friction_score(
-        apps_total, permits_total, rhna_permitted, rhna_target,
-        timeline["median_days_to_permit"]
-    )
+    friction = _friction_score(rhna_permitted, rhna_target, timeline["median_days_to_permit"])
 
     # ── Data source ───────────────────────────────────────────────────────────
     portal = CITY_PORTALS.get(city, {})
@@ -134,7 +150,7 @@ def _city_metrics(city: str, a: pd.DataFrame, a2: pd.DataFrame) -> dict:
         "entitlements_total": entitlements,
         "permits_total": permits_total,
         "cos_total": cos_total,
-        "conversion_rate_pct": round(permits_total / apps_total * 100, 1) if apps_total else None,
+        "entitlement_rate_pct": min(round(entitlements / apps_total * 100, 1), 100.0) if apps_total else None,
         **timeline,
         "date_completeness_pct": date_completeness,
         "adu": adu_metrics,
@@ -163,12 +179,9 @@ def _timeline_metrics(a: pd.DataFrame, a2: pd.DataFrame) -> dict:
     if not join_keys:
         return _empty_timeline()
 
-    merged = a.merge(
-        a2[join_keys + ["date_building_permit", "date_entitlement"]],
-        on=join_keys,
-        how="inner",
-        suffixes=("_a", "_a2"),
-    )
+    a_left  = _prep_a_for_merge(a)
+    a2_right = a2[join_keys + ["date_building_permit", "date_entitlement"]].copy()
+    merged = a_left.merge(a2_right, on=join_keys, how="inner")
 
     if merged.empty:
         return _empty_timeline()
@@ -185,8 +198,12 @@ def _timeline_metrics(a: pd.DataFrame, a2: pd.DataFrame) -> dict:
 
     def safe_median(series: pd.Series) -> Any:
         s = series.dropna()
-        s = s[(s >= 0) & (s <= 3650)]  # sanity: 0–10 years
-        return int(s.median()) if len(s) >= 3 else None
+        s = s[(s > 0) & (s <= 3650)]
+        if len(s) < 3:
+            return None
+        s = s[s <= s.quantile(0.98)]  # trim top 2% to reduce outlier distortion
+        m = int(round(s.median()))
+        return m if m > 0 else None
 
     match_rate = round(len(merged) / len(a) * 100, 1) if len(a) else None
 
@@ -234,15 +251,14 @@ def _adu_metrics(a_adu: pd.DataFrame, a2_adu: pd.DataFrame) -> dict:
                 "within_60_days_pct": None, "median_days": None,
                 "statutory_violations_n": None}
 
-    merged = a_adu.merge(
-        a2_adu[join_keys + ["date_building_permit"]],
-        on=join_keys, how="inner",
-    )
+    a_left   = _prep_a_for_merge(a_adu)
+    a2_right = a2_adu[join_keys + ["date_building_permit"]].copy()
+    merged = a_left.merge(a2_right, on=join_keys, how="inner")
     merged["days"] = (
         merged["date_building_permit"] - merged["date_application_complete"]
     ).dt.days
     valid = merged["days"].dropna()
-    valid = valid[(valid >= 0) & (valid <= 730)]
+    valid = valid[(valid > 0) & (valid <= 730)]   # >0: filter same-day artifacts
 
     if len(valid) < 2:
         return {"apps": apps, "permits": permits,
@@ -291,48 +307,60 @@ def _project_rows(city: str, a: pd.DataFrame, a2: pd.DataFrame) -> list[dict]:
 
 # ── Friction score ────────────────────────────────────────────────────────────
 
-def _friction_score(
-    apps: int,
-    permits: int,
-    rhna_permitted: int,
-    rhna_target: int,
-    median_days: Any,
-) -> int:
+def _friction_score(rhna_permitted: int, rhna_target: int, median_days: Any) -> int:
     """
     0–100 score, higher = more friction.
 
-    Components (see config.FRICTION_WEIGHTS):
-      rhna_gap:        1 - (permits_6th_cycle / rhna_target)        weight 0.40
-      conversion_gap:  1 - (permits / applications)                  weight 0.35
-      timeline_score:  median_days_to_permit / TIMELINE_CEILING      weight 0.25
+    Components:
+      rhna_gap       = 1 - (permits_6th_cycle / rhna_target)   weight 60%
+      timeline_score = median_days / TIMELINE_CEILING           weight 40%
 
-    When timeline data is unavailable, rhna_gap and conversion_gap are
-    re-weighted proportionally (0.53 / 0.47).
+    Cross-table conversion rate removed: Table A (discretionary applications)
+    and Table A2 (all permits incl. ministerial) are not comparable denominators.
+    When timeline data unavailable, full weight goes to rhna_gap.
     """
-    w = FRICTION_WEIGHTS
-
     rhna_gap = 1.0 - min(rhna_permitted / rhna_target, 1.0) if rhna_target > 0 else 1.0
-    conv_gap  = 1.0 - min(permits / apps, 1.0) if apps > 0 else 1.0
 
     if median_days is not None:
         timeline = min(median_days / TIMELINE_CEILING_DAYS, 1.0)
-        score = (
-            rhna_gap  * w["rhna_gap"] +
-            conv_gap  * w["conversion_gap"] +
-            timeline  * w["timeline_score"]
-        ) * 100
+        score = (rhna_gap * 0.60 + timeline * 0.40) * 100
     else:
-        # Re-weight without timeline
-        total_w = w["rhna_gap"] + w["conversion_gap"]
-        score = (
-            rhna_gap * w["rhna_gap"] / total_w +
-            conv_gap * w["conversion_gap"] / total_w
-        ) * 100
+        score = rhna_gap * 100
 
     return min(int(round(score)), 100)
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
+
+def _dedup_cross_year(a2: pd.DataFrame) -> pd.DataFrame:
+    """Deduplicate Table A2 across reporting years.
+    Projects reappear each year they are active; keep the row with the most dates."""
+    if a2.empty:
+        return a2
+    key = [c for c in ["jurisdiction", "address", "unit_type"] if c in a2.columns]
+    if not key:
+        return a2
+    a2 = a2.copy()
+    date_cols = ["date_entitlement", "date_building_permit", "date_certificate_of_occupancy"]
+    a2["_dc"] = a2[[c for c in date_cols if c in a2.columns]].notna().sum(axis=1)
+    a2 = a2.sort_values("_dc", ascending=False).drop_duplicates(subset=key, keep="first")
+    return a2.drop(columns=["_dc"])
+
+
+def _rhna_slice(a2_deduped: pd.DataFrame, cycle_start: int) -> pd.DataFrame:
+    """Return A2 rows counting toward current RHNA cycle.
+    Uses actual BP issue date year when available; falls back to reporting year."""
+    if a2_deduped.empty:
+        return a2_deduped
+    df = a2_deduped.copy()
+    if "date_building_permit" in df.columns:
+        bp_year = pd.to_datetime(df["date_building_permit"], errors="coerce").dt.year
+        rep_year = pd.to_numeric(df.get("reporting_year", pd.Series(dtype=float)), errors="coerce")
+        eff_year = bp_year.combine_first(rep_year)
+    else:
+        eff_year = pd.to_numeric(df.get("reporting_year", pd.Series(dtype=float)), errors="coerce")
+    return df[eff_year >= cycle_start]
+
 
 def _date_completeness(a: pd.DataFrame, a2: pd.DataFrame) -> dict:
     """Return % of rows with each date field populated."""
@@ -394,7 +422,8 @@ def _methodology_note() -> dict:
             "All data is self-reported by jurisdictions to HCD. HCD performs completeness checks but not field-level audits.",
             "Duplicate entries from resubmissions are deduplicated by keeping the row with the most date fields populated.",
             "RHNA progress uses 6th cycle (2023–2031) only. Pre-2023 permits counted toward 5th cycle.",
-            "Projects appear in multiple APR years as they move through the pipeline; unit counts may double-count across years.",
+            "Projects appear in multiple APR years as they move through the pipeline; the pipeline deduplicates cross-year on (jurisdiction, address, unit type) to avoid double-counting.",
+            "Early-cycle bias: the friction score is dominated by RHNA progress (60% weight), which structurally disadvantages large cities with ambitious targets in the first two years of an 8-year cycle. A city like Daly City (RHNA target: 7,169) must permit ~900 units per year just to stay on pace, while a small city like Portola Valley needs only ~28. Scores for large cities will improve substantially as the cycle matures and permit counts accumulate — interpret high scores for large cities in 2023–2025 with this in mind.",
         ],
     }
 

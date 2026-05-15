@@ -23,20 +23,19 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from pipeline.config import (
     COLUMN_ALIASES,
     DATA_RAW,
+    HEADERS,
     HCD_APR_CKAN_API,
     HCD_APR_CKAN_DATASET_ID,
     HCD_TABLE_A2_URL,
     HCD_TABLE_A_URL,
     PENINSULA_JURISDICTIONS,
+    REQUEST_TIMEOUT,
     TABLE_A2_RAW,
     TABLE_A_RAW,
     classify_unit_type,
 )
 
 log = logging.getLogger(__name__)
-
-REQUEST_TIMEOUT = 60
-HEADERS = {"User-Agent": "PeninsulaPermitTracker/1.0 (https://github.com/PeninsulaForEveryone)"}
 
 DATE_COLS = [
     "date_application_complete",
@@ -155,6 +154,7 @@ def _load_and_normalize(path: Path, label: str) -> pd.DataFrame:
         raise RuntimeError(f"Could not decode {path}")
 
     df.columns = [c.strip() for c in df.columns]
+    log.info("%s raw columns: %s", label, list(df.columns))
     df = _rename_columns(df)
     df = _add_unit_type(df)
     return df
@@ -193,6 +193,7 @@ def _filter_peninsula(df: pd.DataFrame) -> pd.DataFrame:
         log.warning("No 'jurisdiction' column found; returning all rows")
         return df
     df["jurisdiction"] = df["jurisdiction"].str.strip()
+    log.info("Sample jurisdiction values: %s", df["jurisdiction"].dropna().unique()[:8].tolist())
     # Case-insensitive match against our list
     lower_map = {j.lower(): j for j in PENINSULA_JURISDICTIONS}
     df["jurisdiction"] = df["jurisdiction"].apply(
@@ -209,7 +210,7 @@ def _filter_peninsula(df: pd.DataFrame) -> pd.DataFrame:
 def _coerce_types(df: pd.DataFrame) -> pd.DataFrame:
     for col in DATE_COLS:
         if col in df.columns:
-            df[col] = pd.to_datetime(df[col], errors="coerce", infer_datetime_format=True)
+            df[col] = pd.to_datetime(df[col], errors="coerce")
 
     for col in NUMERIC_COLS:
         if col in df.columns:
