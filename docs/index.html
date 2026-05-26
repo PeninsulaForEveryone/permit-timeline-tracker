@@ -188,6 +188,11 @@
   .map-legend-swatch { width: 13px; height: 13px; border-radius: 3px; flex-shrink: 0; }
   .map-no-geo { background: var(--bg-2); border: 1px dashed var(--border-2); border-radius: var(--radius-lg); padding: 2rem; text-align: center; font-size: 13px; color: var(--text-3); margin-bottom: 2rem; }
 
+  /* ── Section permalinks ── */
+  .section-link { opacity: 0; margin-left: 6px; font-size: 13px; font-weight: 400; color: var(--text-3); text-decoration: none; transition: opacity 0.1s; }
+  h2:hover .section-link { opacity: 1; }
+  .section-link:hover { color: var(--text); }
+
   /* ── Map mobile ── */
   .map-tap-hint { font-size: 12px; color: var(--text-3); margin-bottom: 8px; display: none; }
   .map-info-strip {
@@ -258,6 +263,50 @@ function featureStyle(feature) {
   };
 }
 
+// ── URL state ────────────────────────────────────────────────────────────────
+const SORT_TO_ALIAS = {
+  friction_score: 'friction', city: 'city', rhna_progress_pct: 'rhna',
+  _display_ent_rate: 'ent_rate', _display_days: 'days',
+};
+const ALIAS_TO_SORT = Object.fromEntries(Object.entries(SORT_TO_ALIAS).map(([k, v]) => [v, k]));
+
+function readUrlState() {
+  const params = new URLSearchParams(location.search);
+  const city = params.get('city');
+  const filter = params.get('filter');
+  const sort = params.get('sort');
+  const dir = params.get('dir');
+  if (city && DATA.cities.some(c => c.city === city)) state.selectedCity = city;
+  if (filter && ['all', 'adu', 'non_adu'].includes(filter)) state.unitFilter = filter;
+  if (sort && ALIAS_TO_SORT[sort]) {
+    state.sortKey = ALIAS_TO_SORT[sort];
+    state.sortDir = dir === 'asc' ? 1 : -1;
+  }
+}
+
+function writeUrlState() {
+  const params = new URLSearchParams();
+  if (state.selectedCity) params.set('city', state.selectedCity);
+  if (state.unitFilter !== 'all') params.set('filter', state.unitFilter);
+  const isDefaultSort = state.sortKey === 'friction_score' && state.sortDir === -1;
+  if (!isDefaultSort) {
+    params.set('sort', SORT_TO_ALIAS[state.sortKey] ?? state.sortKey);
+    if (state.sortDir === 1) params.set('dir', 'asc');
+  }
+  const qs = params.toString();
+  history.replaceState(null, '', (qs ? '?' + qs : location.pathname) + location.hash);
+}
+
+function applyHashScroll() {
+  if (state.selectedCity) return;
+  const hash = location.hash;
+  if (!hash) return;
+  setTimeout(() => {
+    const el = document.querySelector(hash);
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, 100);
+}
+
 // ── Boot ────────────────────────────────────────────────────────────────────
 Promise.all([
   fetch('data/viz_data.json').then(r => { if (!r.ok) throw new Error(`viz_data.json: HTTP ${r.status}`); return r.json(); }),
@@ -266,7 +315,9 @@ Promise.all([
   DATA = data;
   GEO = geo;
   buildScoreMap();
+  readUrlState();
   render();
+  applyHashScroll();
 }).catch(e => {
   document.getElementById('app').innerHTML =
     `<div class="error">Could not load viz_data.json: ${e.message}<br>
@@ -275,6 +326,7 @@ Promise.all([
 
 // ── Main render ──────────────────────────────────────────────────────────────
 function render() {
+  writeUrlState();
   const app = document.getElementById('app');
   // Preserve the Leaflet map container node so the map instance survives re-renders
   const savedMapContainer = document.getElementById('map-container');
@@ -404,6 +456,7 @@ function headerHTML() {
 function controlsHTML() {
   const f = state.unitFilter;
   return `
+  <h2 id="table" style="font-size:16px;font-weight:600;margin-bottom:0.75rem">City rankings <a class="section-link" href="#table">#</a></h2>
   <div class="controls">
     <div class="filter-group">
       <button class="filter-btn ${f==='all'?'active':''}" data-filter="all">All housing</button>
@@ -509,7 +562,7 @@ function drilldownHTML(c) {
     { label: 'Permits', val: c.permits_total, color: '#1d9e75' },
     { label: 'COs', val: c.cos_total, color: '#639922' },
   ];
-  const maxVal = steps[0].val || 1;
+  const maxVal = Math.max(...steps.map(s => s.val ?? 0)) || 1;
   const maxH = 72;
 
   // ADU panel
@@ -673,8 +726,8 @@ function mapHTML() {
     </div>`;
   }
   return `
-  <div class="map-section">
-    <h2>Friction score by city</h2>
+  <div class="map-section" id="map">
+    <h2>Friction score by city <a class="section-link" href="#map">#</a></h2>
     <p class="map-sub">Click a city to see details. Higher score = more obstructive to housing.</p>
     <p class="map-tap-hint">Tap a city to see its score.</p>
     <div id="map-container" role="img" aria-label="Choropleth map of Peninsula cities colored by housing permit friction score"></div>
