@@ -18,6 +18,7 @@
 <meta name="twitter:title" content="Peninsula Permit Tracker" />
 <meta name="twitter:description" content="How long does your city take to approve housing? See how every Peninsula city ranks on permit speed, RHNA progress, and ADU compliance." />
 <meta name="twitter:image" content="https://peninsulaforeveryone.github.io/peninsula-permit-tracker/img.png" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -123,7 +124,7 @@
   /* ── Funnel ── */
   .funnel-wrap  { margin-bottom: 1.25rem; }
   .funnel-title { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--text-3); margin-bottom: 10px; }
-  .funnel       { display: flex; gap: 3px; align-items: flex-end; height: 100px; }
+  .funnel       { display: flex; gap: 3px; align-items: flex-end; height: 100px; margin-top: 28px; }
   .funnel-col   { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; }
   .funnel-bar   { width: 100%; border-radius: 3px 3px 0 0; }
   .funnel-lbl   { font-size: 10px; color: var(--text-3); text-align: center; line-height: 1.3; }
@@ -170,9 +171,9 @@
   .map-section { margin-bottom: 2rem; }
   .map-section h2 { font-size: 16px; font-weight: 600; margin-bottom: 4px; }
   .map-section .map-sub { font-size: 13px; color: var(--text-2); margin-bottom: 1rem; }
-  #map-svg { width: 100%; display: block; border-radius: var(--radius-lg); overflow: hidden; }
-  .map-city { cursor: pointer; transition: opacity 0.1s; }
-  .map-city:hover { opacity: 0.8; }
+  #map-container { width: 100%; height: 480px; border-radius: var(--radius-lg); overflow: hidden; }
+  .leaflet-container { font-family: var(--font); }
+  .leaflet-control-attribution { font-size: 10px !important; background: rgba(250,249,246,0.85) !important; }
   .map-tooltip {
     position: fixed; pointer-events: none; z-index: 100;
     background: var(--bg); border: 1px solid var(--border-2);
@@ -201,7 +202,7 @@
   .map-info-strip .mis-open { font-size: 12px; color: var(--blue-text); margin-top: 6px; cursor: pointer; }
   @media (max-width: 600px) {
     .map-tap-hint { display: block; }
-    #map-svg { border-radius: var(--radius); }
+    #map-container { height: 340px; border-radius: var(--radius); }
     .map-legend { gap: 10px; }
     .map-legend-item { font-size: 11px; }
   }
@@ -216,6 +217,7 @@
   <div class="loading">Loading permit data…</div>
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script>
 // ── State ───────────────────────────────────────────────────────────────────
 let DATA = null;
@@ -227,6 +229,35 @@ let state = {
   selectedCity: null,
 };
 
+// ── Leaflet state ────────────────────────────────────────────────────────────
+let leafletMap = null;
+let geoLayer = null;
+let _scoreMap = {};
+
+function buildScoreMap() {
+  _scoreMap = {};
+  (DATA.cities || []).forEach(c => { _scoreMap[c.city] = c; });
+}
+
+function scoreColor(score) {
+  if (score == null) return '#d3d1c7';
+  if (score >= 65) return '#e24b4a';
+  if (score >= 35) return '#ba7517';
+  return '#639922';
+}
+
+function featureStyle(feature) {
+  const name = feature.properties?.name;
+  const score = _scoreMap[name]?.friction_score;
+  const isSelected = state.selectedCity === name;
+  return {
+    fillColor: scoreColor(score),
+    fillOpacity: isSelected ? 1 : 0.82,
+    color: isSelected ? '#1c1b18' : '#ffffff',
+    weight: isSelected ? 2.5 : 0.8,
+  };
+}
+
 // ── Boot ────────────────────────────────────────────────────────────────────
 Promise.all([
   fetch('data/viz_data.json').then(r => { if (!r.ok) throw new Error(`viz_data.json: HTTP ${r.status}`); return r.json(); }),
@@ -234,6 +265,7 @@ Promise.all([
 ]).then(([data, geo]) => {
   DATA = data;
   GEO = geo;
+  buildScoreMap();
   render();
 }).catch(e => {
   document.getElementById('app').innerHTML =
@@ -244,6 +276,9 @@ Promise.all([
 // ── Main render ──────────────────────────────────────────────────────────────
 function render() {
   const app = document.getElementById('app');
+  // Preserve the Leaflet map container node so the map instance survives re-renders
+  const savedMapContainer = document.getElementById('map-container');
+
   const cities = filteredAndSorted();
   const sel = state.selectedCity ? cities.find(c => c.city === state.selectedCity) : null;
 
@@ -259,7 +294,19 @@ function render() {
     sel.addEventListener('change', e => setSort(e.target.value)));
   app.querySelectorAll('[data-city]').forEach(el =>
     el.addEventListener('click', () => selectCity(el.dataset.city)));
-  if (GEO) renderMap();
+
+  if (GEO && GEO.features && GEO.features.length > 0) {
+    const newMapContainer = document.getElementById('map-container');
+    if (savedMapContainer && leafletMap) {
+      // Swap the fresh empty div for the live Leaflet container
+      newMapContainer.parentNode.replaceChild(savedMapContainer, newMapContainer);
+      if (geoLayer) geoLayer.setStyle(featureStyle);
+      leafletMap.invalidateSize();
+    } else {
+      initLeafletMap();
+    }
+  }
+
   const closeBtn = app.querySelector('[data-close-drilldown]');
   if (closeBtn) closeBtn.addEventListener('click', () => { state.selectedCity = null; render(); });
 
@@ -319,6 +366,15 @@ function selectCity(name) {
   render();
 }
 
+function openCityDrilldown(name) {
+  state.selectedCity = name;
+  render();
+  setTimeout(() => {
+    const dd = document.querySelector('.drilldown');
+    if (dd) dd.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, 50);
+}
+
 // ── HTML builders ────────────────────────────────────────────────────────────
 function headerHTML() {
   const meta = DATA.metadata;
@@ -330,8 +386,14 @@ function headerHTML() {
   </div>
   <header class="site-header">
     <h1>Peninsula Permit Tracker</h1>
-    <p>How long does your city take to approve housing?
-       Friction scores, RHNA progress, and ADU compliance across ${meta.jurisdiction_count} Peninsula jurisdictions.</p>
+    <p>The San Francisco Peninsula is one of the least affordable places to live in the United States. Rents and home prices have risen for decades, pushing out teachers, nurses, service workers, and the adult children of long-time residents. The cause isn't mysterious: <i>we haven't built enough homes</i>.</p>
+    <br />
+    <p>And a big reason we haven't built enough homes is that many Peninsula cities have made it extraordinarily difficult to get a permit approved — through slow review processes, discretionary hurdles, design committees, and outright denial.</p>
+    <br />
+    <p>California has tried to fix this with a legally binding mandate called the RHNA (Regional Housing Needs Allocation), which assigns each city a specific number of homes it must facilitate — by income level, on a fixed timeline — as a condition of state law. Cities that fall behind lose certain zoning powers and become vulnerable to state override. The state agency that tracks compliance is called HCD (the Department of Housing and Community Development), and every city must file an annual progress report showing how many applications they've received, how many permits they've issued, and — in theory — how long each one took.</p>
+    <br />
+    <p>This tracker pulls that data for every Peninsula jurisdiction and turns it into a friction score: a measure of how obstructive each city actually is to housing getting built. A high score isn't an accident or a market outcome — it's a policy choice made by elected officials, often on behalf of existing homeowners who benefit from scarcity. The goal of this tool is to make those choices visible, comparable, and embarrassing to the cities that deserve it.</p>
+    <br />
     <p class="freshness">
       Data: <a href="${meta.source_url}" target="_blank" rel="noopener">HCD Housing Element APR</a>
       through ${yr} · Updated ${fmtDate(meta.generated_at)}
@@ -615,7 +677,7 @@ function mapHTML() {
     <h2>Friction score by city</h2>
     <p class="map-sub">Click a city to see details. Higher score = more obstructive to housing.</p>
     <p class="map-tap-hint">Tap a city to see its score.</p>
-    <svg id="map-svg" aria-label="Choropleth map of Peninsula cities colored by housing permit friction score"></svg>
+    <div id="map-container" role="img" aria-label="Choropleth map of Peninsula cities colored by housing permit friction score"></div>
     <div id="map-info-strip" class="map-info-strip" aria-live="polite"></div>
     <div class="map-legend">
       <div class="map-legend-item"><div class="map-legend-swatch" style="background:#e24b4a"></div>High friction (65–100)</div>
@@ -626,87 +688,13 @@ function mapHTML() {
   </div>`;
 }
 
-function renderMap() {
-  const svg = document.getElementById('map-svg');
-  if (!svg || !GEO || !GEO.features || GEO.features.length === 0) return;
+function initLeafletMap() {
+  const container = document.getElementById('map-container');
+  if (!container || !GEO || !GEO.features) return;
 
   const isMobile = window.innerWidth <= 600;
-  const scoreMap = {};
-  (DATA.cities || []).forEach(c => { scoreMap[c.city] = c; });
 
-  function scoreColor(score) {
-    if (score == null) return '#d3d1c7';
-    if (score >= 65) return '#e24b4a';
-    if (score >= 35) return '#ba7517';
-    return '#639922';
-  }
-
-  const W = svg.parentElement.clientWidth || 680;
-  const H = Math.round(W * (isMobile ? 1.1 : 0.72));
-  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
-  svg.setAttribute('height', H);
-
-  // Compute bounding box from GeoJSON
-  let minLng = Infinity, maxLng = -Infinity, minLat = Infinity, maxLat = -Infinity;
-  function scanCoords(coords) {
-    if (typeof coords[0] === 'number') {
-      minLng = Math.min(minLng, coords[0]); maxLng = Math.max(maxLng, coords[0]);
-      minLat = Math.min(minLat, coords[1]); maxLat = Math.max(maxLat, coords[1]);
-    } else { coords.forEach(scanCoords); }
-  }
-  GEO.features.forEach(f => { if (f.geometry) scanCoords(f.geometry.coordinates); });
-
-  // Pad bounds
-  const pad = 0.05;
-  minLng -= pad; maxLng += pad; minLat -= pad; maxLat += pad;
-
-  // Mercator projection fitted to bounds
-  function project(lng, lat) {
-    // Simple equirectangular with aspect correction — good enough for small region
-    const cosLat = Math.cos((minLat + maxLat) / 2 * Math.PI / 180);
-    const x = (lng - minLng) / (maxLng - minLng) * W;
-    const latRange = maxLat - minLat;
-    const lngRange = (maxLng - minLng) * cosLat;
-    const scale = Math.min(W / lngRange, H / latRange);
-    const projW = lngRange * scale;
-    const projH = latRange * scale;
-    const offX = (W - projW) / 2;
-    const offY = (H - projH) / 2;
-    const px = offX + (lng - minLng) * cosLat * scale;
-    const py = offY + (maxLat - lat) * scale;
-    return [px, py];
-  }
-
-  function coordsToPath(coords) {
-    return coords.map((ring, ri) =>
-      ring.map((pt, i) => {
-        const [x, y] = project(pt[0], pt[1]);
-        return (i === 0 ? 'M' : 'L') + x.toFixed(1) + ',' + y.toFixed(1);
-      }).join(' ') + ' Z'
-    ).join(' ');
-  }
-
-  function featurePath(geom) {
-    if (!geom) return '';
-    if (geom.type === 'Polygon') return coordsToPath(geom.coordinates);
-    if (geom.type === 'MultiPolygon') return geom.coordinates.map(coordsToPath).join(' ');
-    return '';
-  }
-
-  function centroid(geom) {
-    // Simple centroid of bounding box midpoint for label placement
-    let lngs = [], lats = [];
-    function collect(coords) {
-      if (typeof coords[0] === 'number') { lngs.push(coords[0]); lats.push(coords[1]); }
-      else coords.forEach(collect);
-    }
-    if (geom) collect(geom.coordinates);
-    const lng = lngs.reduce((a,b)=>a+b,0)/lngs.length;
-    const lat = lats.reduce((a,b)=>a+b,0)/lats.length;
-    return project(lng, lat);
-  }
-
-  // Tooltip
+  // Tooltip element (shared, appended to body)
   let tooltip = document.getElementById('map-tooltip');
   if (!tooltip) {
     tooltip = document.createElement('div');
@@ -716,119 +704,71 @@ function renderMap() {
     document.body.appendChild(tooltip);
   }
 
-  // Render
-  const ns = 'http://www.w3.org/2000/svg';
-  svg.innerHTML = '';
-
-  // Incorporated cities only — exclude county boundary (it encompasses all cities
-  // and breaks both projection bounds and visual layering)
-  const cityFeatures = GEO.features.filter(f => f.properties?.name !== 'San Mateo County');
-
-  // Diagnostic — visible in browser console
-  console.log('[PermitTracker] GEO features:', GEO.features.length, GEO.features.map(f => f.properties?.name));
-  console.log('[PermitTracker] city features after filter:', cityFeatures.length);
-
-  if (cityFeatures.length === 0) return;  // caught by mapHTML guard above
-
-  // Recompute bounds from city features only (not the large county polygon)
-  minLng = Infinity; maxLng = -Infinity; minLat = Infinity; maxLat = -Infinity;
-  cityFeatures.forEach(f => { if (f.geometry) scanCoords(f.geometry.coordinates); });
-  minLng -= pad; maxLng += pad; minLat -= pad; maxLat += pad;
-
-  // Neutral background rect
-  const bg = document.createElementNS(ns, 'rect');
-  bg.setAttribute('width', W); bg.setAttribute('height', H);
-  bg.setAttribute('fill', '#e8e4db');
-  svg.appendChild(bg);
-
-  // Stroke color from current theme
-  const strokeColor = '#ffffff';
-
-  cityFeatures.forEach(feat => {
-    const name = feat.properties?.name;
-    const cityData = scoreMap[name];
-    const score = cityData?.friction_score;
-    const d = featurePath(feat.geometry);
-    if (!d) return;
-
-    const path = document.createElementNS(ns, 'path');
-    path.setAttribute('d', d);
-    path.setAttribute('fill', scoreColor(score));
-    path.setAttribute('stroke', strokeColor);
-    path.setAttribute('stroke-width', '0.8');
-    path.setAttribute('fill-opacity', '0.88');
-    path.classList.add('map-city');
-    if (state.selectedCity === name) {
-      path.setAttribute('stroke', '#1c1b18');
-      path.setAttribute('stroke-width', '2');
-    }
-
-    if (!isMobile) {
-      path.addEventListener('mouseenter', e => {
-        path.setAttribute('fill-opacity', '1');
-        path.setAttribute('stroke-width', state.selectedCity === name ? '2' : '1.5');
-        const rhna = cityData?.rhna_progress_pct;
-        const days = cityData?.median_days_to_permit;
-        tooltip.innerHTML = '<strong>' + name + '</strong>' +
-          (score != null ? 'Friction score: <b>' + score + '/100</b><br>' : '') +
-          (rhna != null ? 'RHNA progress: <b>' + rhna + '%</b><br>' : '') +
-          (days != null ? 'Median days: <b>' + days + 'd</b>' : '');
-        tooltip.style.display = 'block';
-      });
-      path.addEventListener('mousemove', e => {
-        tooltip.style.left = (e.clientX + 14) + 'px';
-        tooltip.style.top  = (e.clientY - 10) + 'px';
-      });
-      path.addEventListener('mouseleave', () => {
-        path.setAttribute('fill-opacity', '0.88');
-        path.setAttribute('stroke-width', state.selectedCity === name ? '2' : '0.8');
-        tooltip.style.display = 'none';
-      });
-      path.addEventListener('click', () => selectCity(name));
-    } else {
-      // Mobile: tap shows info strip, double-tap opens drilldown
-      path.addEventListener('touchend', e => {
-        e.preventDefault();
-        const alreadySelected = state.selectedCity === name;
-        showMapInfoStrip(name, cityData, score);
-        if (alreadySelected) {
-          selectCity(name);
-          setTimeout(() => {
-            const dd = document.querySelector('.drilldown');
-            if (dd) dd.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          }, 100);
-        } else {
-          // Just highlight — don't open drilldown yet
-          state.selectedCity = name;
-          renderMap();
-        }
-      });
-    }
-    svg.appendChild(path);
-
-    // Labels — hidden on mobile (too small/overlapping)
-    if (!isMobile && feat.geometry) {
-      const [cx, cy] = centroid(feat.geometry);
-      const text = document.createElementNS(ns, 'text');
-      text.setAttribute('x', cx.toFixed(1));
-      text.setAttribute('y', cy.toFixed(1));
-      text.setAttribute('text-anchor', 'middle');
-      text.setAttribute('dominant-baseline', 'middle');
-      // Dark label on light fill colors
-      const labelColor = score >= 65 ? '#5a1010' : score >= 35 ? '#422004' : '#1a3808';
-      text.setAttribute('fill', labelColor);
-      text.setAttribute('font-size', '9');
-      text.setAttribute('font-family', 'system-ui,sans-serif');
-      text.setAttribute('pointer-events', 'none');
-      text.setAttribute('font-weight', '600');
-      const label = name === 'South San Francisco' ? 'SSF'
-        : name === 'East Palo Alto' ? 'EPA'
-        : name === 'Half Moon Bay' ? 'HMB'
-        : name;
-      text.textContent = label;
-      svg.appendChild(text);
-    }
+  leafletMap = L.map(container, {
+    scrollWheelZoom: false,
+    zoomControl: false,
   });
+
+  if (!isMobile) {
+    L.control.zoom({ position: 'bottomright' }).addTo(leafletMap);
+  }
+
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+    subdomains: 'abcd',
+    maxZoom: 19,
+    detectRetina: true,
+  }).addTo(leafletMap);
+
+  const cityFeatures = {
+    type: 'FeatureCollection',
+    features: GEO.features.filter(f => f.properties?.name !== 'San Mateo County'),
+  };
+
+  geoLayer = L.geoJSON(cityFeatures, {
+    style: featureStyle,
+    onEachFeature: (feature, layer) => {
+      const name = feature.properties?.name;
+      const cityData = _scoreMap[name];
+      const score = cityData?.friction_score;
+
+      if (!isMobile) {
+        layer.on('mouseover', () => {
+          layer.setStyle({ fillOpacity: 1, weight: state.selectedCity === name ? 2.5 : 1.5 });
+          const rhna = cityData?.rhna_progress_pct;
+          const days = cityData?.median_days_to_permit;
+          tooltip.innerHTML = '<strong>' + name + '</strong>' +
+            (score != null ? 'Friction score: <b>' + score + '/100</b><br>' : '') +
+            (rhna != null ? 'RHNA progress: <b>' + rhna + '%</b><br>' : '') +
+            (days != null ? 'Median days: <b>' + days + 'd</b>' : '');
+          tooltip.style.display = 'block';
+        });
+        layer.on('mousemove', e => {
+          tooltip.style.left = (e.originalEvent.clientX + 14) + 'px';
+          tooltip.style.top  = (e.originalEvent.clientY - 10) + 'px';
+        });
+        layer.on('mouseout', () => {
+          layer.setStyle(featureStyle(feature));
+          tooltip.style.display = 'none';
+        });
+        layer.on('click', () => selectCity(name));
+      } else {
+        layer.on('click', e => {
+          L.DomEvent.stopPropagation(e);
+          const alreadySelected = state.selectedCity === name;
+          showMapInfoStrip(name, cityData, score);
+          if (alreadySelected) {
+            openCityDrilldown(name);
+          } else {
+            state.selectedCity = name;
+            if (geoLayer) geoLayer.setStyle(featureStyle);
+          }
+        });
+      }
+    },
+  }).addTo(leafletMap);
+
+  leafletMap.fitBounds(geoLayer.getBounds().pad(0.08));
 }
 
 function showMapInfoStrip(name, cityData, score) {
@@ -845,7 +785,7 @@ function showMapInfoStrip(name, cityData, score) {
       ${rhna != null ? `<div class="mis-stat">RHNA: <strong>${rhna}%</strong></div>` : ''}
       ${days != null ? `<div class="mis-stat">Median: <strong>${days}d</strong></div>` : ''}
     </div>
-    <div class="mis-open" onclick="selectCity('${name}')">Tap again for full details →</div>
+    <div class="mis-open" onclick="openCityDrilldown('${name}')">Tap again for full details →</div>
   `;
 }
 
@@ -881,6 +821,5 @@ function fmtDate(iso) {
   catch { return iso; }
 }
 </script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
 </body>
 </html>
