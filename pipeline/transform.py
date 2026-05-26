@@ -179,9 +179,9 @@ def _timeline_metrics(a: pd.DataFrame, a2: pd.DataFrame) -> dict:
     if not join_keys:
         return _empty_timeline()
 
-    a_left  = _prep_a_for_merge(a)
-    a2_right = a2[join_keys + ["date_building_permit", "date_entitlement"]].copy()
-    merged = a_left.merge(a2_right, on=join_keys, how="inner")
+    a_left   = _prep_a_for_merge(_dedup_cross_year(a))
+    a2_right = _consolidate_dates_a2(a2, join_keys, ["date_building_permit", "date_entitlement"])
+    merged   = a_left.merge(a2_right, on=join_keys, how="inner")
 
     if merged.empty:
         return _empty_timeline()
@@ -251,9 +251,9 @@ def _adu_metrics(a_adu: pd.DataFrame, a2_adu: pd.DataFrame) -> dict:
                 "within_60_days_pct": None, "median_days": None,
                 "statutory_violations_n": None}
 
-    a_left   = _prep_a_for_merge(a_adu)
-    a2_right = a2_adu[join_keys + ["date_building_permit"]].copy()
-    merged = a_left.merge(a2_right, on=join_keys, how="inner")
+    a_left   = _prep_a_for_merge(_dedup_cross_year(a_adu))
+    a2_right = _consolidate_dates_a2(a2_adu, join_keys, ["date_building_permit"])
+    merged   = a_left.merge(a2_right, on=join_keys, how="inner")
     merged["days"] = (
         merged["date_building_permit"] - merged["date_application_complete"]
     ).dt.days
@@ -333,7 +333,7 @@ def _friction_score(rhna_permitted: int, rhna_target: int, median_days: Any) -> 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 def _dedup_cross_year(a2: pd.DataFrame) -> pd.DataFrame:
-    """Deduplicate Table A2 across reporting years.
+    """Deduplicate Table A2 across reporting years for unit counting.
     Projects reappear each year they are active; keep the row with the most dates."""
     if a2.empty:
         return a2
@@ -345,6 +345,19 @@ def _dedup_cross_year(a2: pd.DataFrame) -> pd.DataFrame:
     a2["_dc"] = a2[[c for c in date_cols if c in a2.columns]].notna().sum(axis=1)
     a2 = a2.sort_values("_dc", ascending=False).drop_duplicates(subset=key, keep="first")
     return a2.drop(columns=["_dc"])
+
+
+def _consolidate_dates_a2(a2: pd.DataFrame, join_keys: list, date_cols: list) -> pd.DataFrame:
+    """Collapse cross-year A2 rows into one per project, taking the earliest
+    non-null value for each date column. This recovers dates that HCD splits
+    across reporting years (e.g. bp_date in year N, co_date in year N+1)."""
+    if a2.empty:
+        return a2
+    present = [c for c in date_cols if c in a2.columns]
+    keys_present = [k for k in join_keys if k in a2.columns]
+    if not keys_present or not present:
+        return a2
+    return a2.groupby(keys_present, as_index=False)[present].min()
 
 
 def _rhna_slice(a2_deduped: pd.DataFrame, cycle_start: int) -> pd.DataFrame:
