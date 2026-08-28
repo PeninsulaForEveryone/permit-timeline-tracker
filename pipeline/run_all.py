@@ -47,14 +47,20 @@ def main():
         df_a, df_a2 = fetch_all(force=args.force)
         log.info("Fetch complete. Table A: %d rows, Table A2: %d rows", len(df_a), len(df_a2))
 
+        log.info("=== Step 1c: Fetch housing element compliance ===")
+        from pipeline.fetch_compliance import fetch_compliance
+        compliance = fetch_compliance(force=args.force)
+
     if args.step in (None, "transform"):
         log.info("=== Step 2: Transform → viz_data.json ===")
         if args.step == "transform":
             # Re-load from cache
             from pipeline.fetch_apr import fetch_all
+            from pipeline.fetch_compliance import fetch_compliance
             df_a, df_a2 = fetch_all(force=False)
+            compliance = fetch_compliance(force=False)
         from pipeline.transform import build_viz_data, write_viz_data
-        data = build_viz_data(df_a, df_a2)
+        data = build_viz_data(df_a, df_a2, compliance)
         out = write_viz_data(data)
         _print_summary(data)
         log.info("Output: %s", out)
@@ -77,6 +83,17 @@ def _print_summary(data: dict):
     missing_timeline = sum(1 for c in cities if c['median_days_to_permit'] is None)
     if missing_timeline:
         print(f"Cities with no timeline data (did not report dates to HCD): {missing_timeline}")
+
+    meta = data["metadata"]
+    yr = meta.get("latest_apr_year")
+    not_filed = meta.get("latest_year_not_filed") or []
+    print(f"{yr} APR filed by {meta.get('latest_year_filed_count')} of {len(cities)} jurisdictions"
+          + (f" — not yet filed: {', '.join(not_filed)}" if not_filed else ""))
+
+    out_of_compliance = [c['city'] for c in cities
+                         if (c.get('housing_element') or {}).get('in_compliance') is False]
+    print("Housing element OUT of compliance (Builder's Remedy applies): "
+          + (", ".join(out_of_compliance) if out_of_compliance else "none"))
 
 
 if __name__ == "__main__":

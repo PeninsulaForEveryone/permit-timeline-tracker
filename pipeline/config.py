@@ -47,6 +47,28 @@ HCD_TABLE_A2_URL = (
 TABLE_A_RAW = DATA_RAW / "hcd_apr_table_a.csv"
 TABLE_A2_RAW = DATA_RAW / "hcd_apr_table_a2.csv"
 
+# ── HCD Housing Element Compliance Report ─────────────────────────────────────
+# Separate dataset from the APR. This is the authoritative record of whether a
+# jurisdiction's housing element is in substantial compliance with state law —
+# the actual legal trigger for the Builder's Remedy (Gov. Code 65589.5(d)(5))
+# and for SB 423/SB 35 streamlining. It is NOT derivable from APR production data.
+
+HCD_COMPLIANCE_CKAN_DATASET_ID = "55537b9f-0c54-456d-b76a-90c157718975"
+HCD_COMPLIANCE_URL = (
+    "https://data.ca.gov/dataset/55537b9f-0c54-456d-b76a-90c157718975"
+    "/resource/2dcd1cd4-1348-4fc5-9c9c-219f82daac00/download/housing_element.csv"
+)
+COMPLIANCE_RAW = DATA_RAW / "hcd_housing_element_compliance.csv"
+
+# HCD's public compliance dashboards (linked from the UI)
+HCD_COMPLIANCE_REPORT_URL = (
+    "https://www.hcd.ca.gov/housing-open-data-tools/housing-element-review-compliance-report"
+)
+HCD_SMAP_DASHBOARD_URL = (
+    "https://www.hcd.ca.gov/planning-and-community-development"
+    "/streamlined-ministerial-approval-process-dashboard"
+)
+
 # ── APR column name normalization ─────────────────────────────────────────────
 # HCD has changed column names across APR years. We normalize on load.
 # Keys = our canonical names; values = list of known source variants.
@@ -75,10 +97,15 @@ COLUMN_ALIASES = {
         "NO_ENTITLEMENTS",
         "Entitlement Units", "EntitlementUnits",
     ],
-    "date_application_complete": [
-        "APP_SUBMIT_DT", "APP_DEEMED_COMPLETE_DT",
-        "Date Application Deemed Complete", "DateApplicationDeemedComplete",
-        "Application Complete Date", "Date of Application",
+    # NOTE: HCD Table A reports only the date the application was SUBMITTED
+    # (APP_SUBMIT_DT). There is no "deemed complete" field, no SB 330 pre-application
+    # field, and no first-contact field anywhere in the APR schema — so every
+    # timeline in this project starts at submittal. Do not alias a deemed-complete
+    # column into this field; that would silently mix two different milestones.
+    "date_application_submitted": [
+        "APP_SUBMIT_DT",
+        "Date Application Submitted", "DateApplicationSubmitted",
+        "Application Submittal Date", "Date of Application",
     ],
     "date_entitlement": [
         "ENT_APPROVE_DT1", "ENT_APPR_DT", "ENTITLE_DT", "ENT_DT",
@@ -244,10 +271,12 @@ CITY_PORTALS = {
 # ── Friction score weights ────────────────────────────────────────────────────
 # Documented here so the methodology note in the UI is auto-generated from source.
 
+# These are the ONLY weights used; transform._friction_score() reads them directly
+# and transform._methodology_note() renders the published description from them,
+# so the number on the page can never drift from the number in the code.
 FRICTION_WEIGHTS = {
-    "rhna_gap": 0.40,          # 1 - (permits_issued / rhna_target)
-    "conversion_gap": 0.35,    # 1 - (permits / applications)
-    "timeline_score": 0.25,    # median_days_to_permit / TIMELINE_CEILING
+    "rhna_gap": 0.60,          # 1 - (building_permits_6th_cycle / rhna_target)
+    "timeline_score": 0.40,    # median_days_to_permit / TIMELINE_CEILING
 }
 TIMELINE_CEILING_DAYS = 800    # anything ≥ this scores 1.0 on timeline dimension
 
@@ -255,6 +284,8 @@ TIMELINE_CEILING_DAYS = 800    # anything ≥ this scores 1.0 on timeline dimens
 ADU_STATUTORY_DAYS = 60
 
 # ── Reporting years in scope ──────────────────────────────────────────────────
+# No year filter is applied: we ingest every reporting year HCD publishes and
+# surface the per-city latest reported year in viz_data.json instead, because
+# jurisdictions file late and coverage of the most recent year is always partial.
 
-APR_YEARS = list(range(2018, 2025))   # 2018–2024 inclusive
 RHNA_CYCLE_START = 2023               # 6th cycle begins; pre-2023 = 5th cycle

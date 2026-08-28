@@ -10,14 +10,18 @@
 <meta property="og:type" content="website" />
 <meta property="og:title" content="Peninsula Permit Tracker" />
 <meta property="og:description" content="How long does your city take to approve housing? See how every Peninsula city ranks on permit speed, RHNA progress, and ADU compliance." />
-<meta property="og:image" content="https://peninsulaforeveryone.github.io/peninsula-permit-tracker/img.png" />
+<meta property="og:image" content="https://peninsulaforeveryone.github.io/peninsula-permit-tracker/img.png?v=2" />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+<meta property="og:image:alt" content="Map of San Mateo County Peninsula cities shaded by housing permit friction score." />
 <meta property="og:site_name" content="Peninsula for Everyone" />
 
 <!-- Twitter / X card -->
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:title" content="Peninsula Permit Tracker" />
 <meta name="twitter:description" content="How long does your city take to approve housing? See how every Peninsula city ranks on permit speed, RHNA progress, and ADU compliance." />
-<meta name="twitter:image" content="https://peninsulaforeveryone.github.io/peninsula-permit-tracker/img.png" />
+<meta name="twitter:image" content="https://peninsulaforeveryone.github.io/peninsula-permit-tracker/img.png?v=2" />
+<meta name="twitter:image:alt" content="Map of San Mateo County Peninsula cities shaded by housing permit friction score." />
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -130,6 +134,14 @@
   .funnel-lbl   { font-size: 10px; color: var(--text-3); text-align: center; line-height: 1.3; }
   .funnel-val   { font-size: 13px; font-weight: 600; }
   .funnel-pct   { font-size: 10px; color: var(--text-3); }
+
+  .th-note      { display: block; font-weight: 400; font-size: 10px; color: var(--text-3); letter-spacing: .01em; }
+  .funnel-note  { font-size: 11px; color: var(--text-3); line-height: 1.55; margin: -4px 0 10px; max-width: 60ch; }
+  .clock-note   { font-size: 12px; color: var(--text-2); line-height: 1.6; background: var(--bg-2);
+                  border-left: 2px solid var(--border); padding: .6rem .75rem; border-radius: 3px;
+                  margin-bottom: 1.25rem; }
+  .clock-note b { color: var(--text); font-weight: 600; }
+  .stale-badge  { font-size: 10px; color: var(--text-3); margin-left: 4px; white-space: nowrap; }
 
   /* ── RHNA bar ── */
   .rhna-bar-wrap { display: flex; align-items: center; gap: 10px; margin-bottom: 1.25rem; }
@@ -430,7 +442,8 @@ function openCityDrilldown(name) {
 // ── HTML builders ────────────────────────────────────────────────────────────
 function headerHTML() {
   const meta = DATA.metadata;
-  const yr = meta.latest_apr_year_table_a ?? '?';
+  const yr = meta.latest_apr_year ?? meta.latest_apr_year_table_a ?? '?';
+  const notFiled = meta.latest_year_not_filed || [];
   return `
   <div class="site-eyebrow">
     <a href="https://www.peninsulaforeveryone.org" target="_blank" rel="noopener">Peninsula for Everyone</a>
@@ -448,7 +461,20 @@ function headerHTML() {
     <br />
     <p class="freshness">
       Data: <a href="${meta.source_url}" target="_blank" rel="noopener">HCD Housing Element APR</a>
-      through ${yr} · Updated ${fmtDate(meta.generated_at)}
+      through reporting year ${yr}${notFiled.length
+        ? ` (filed so far by ${meta.latest_year_filed_count} of ${meta.jurisdiction_count} jurisdictions — not yet in: ${notFiled.join(', ')})`
+        : ''}
+      · Housing element status: <a href="${meta.compliance_source_url}" target="_blank" rel="noopener">HCD Compliance Report</a>
+      · Updated ${fmtDate(meta.generated_at)}
+    </p>
+    <p class="freshness">
+      Reading the calendar: an APR covering calendar year ${yr} is due to HCD by April 1, ${yr + 1},
+      and HCD publishes each one as it is filed.${notFiled.length
+        ? ` ${yr} is therefore still filling in — ${meta.complete_apr_year} is the most recent year
+           every city has reported. Cities missing from ${yr} are not penalized for it: their
+           metrics run through the last year they filed, shown on each city's card.`
+        : ` All ${meta.jurisdiction_count} Peninsula jurisdictions have now filed for ${yr}, so every
+           city below is measured over the same years.`}
     </p>
   </header>`;
 }
@@ -492,10 +518,19 @@ function tableHTML(cities) {
     <thead><tr>
       <th data-sort="friction_score" class="${s==='friction_score'?'sorted':''}">Friction score ${arrow('friction_score')}</th>
       <th data-sort="city" class="${s==='city'?'sorted':''}">City ${arrow('city')}</th>
-      <th data-sort="rhna_progress_pct" class="${s==='rhna_progress_pct'?'sorted':''}">RHNA progress ${arrow('rhna_progress_pct')}</th>
-      <th data-sort="_display_ent_rate" class="${s==='_display_ent_rate'?'sorted':''}">Entitlement rate ${arrow('_display_ent_rate')}</th>
-      <th data-sort="_display_days" class="${s==='_display_days'?'sorted':''}">
-        ${isAdu ? 'ADU median days (60-day limit)' : 'Median days to permit'} ${arrow('_display_days')}
+      <th data-sort="rhna_progress_pct" class="${s==='rhna_progress_pct'?'sorted':''}"
+          title="Share of the 6th-cycle RHNA target met by BUILDING PERMITS issued since 2023 (HCD Table A2). Entitlements do not count toward RHNA.">
+        RHNA progress <span class="th-note">(permits issued)</span> ${arrow('rhna_progress_pct')}</th>
+      <th data-sort="_display_ent_rate" class="${s==='_display_ent_rate'?'sorted':''}"
+          title="${isAdu
+            ? 'ADU permits issued as a share of ADU applications received. Over 100% is normal and not an error: most ADUs are approved ministerially and are permitted (Table A2) without ever appearing as an application in Table A.'
+            : 'Units approved as a share of units proposed in applications requiring discretionary review (HCD Table A). A different measure from RHNA progress — not the next stage of it.'}">
+        ${isAdu ? 'Permits ÷ applications' : 'Entitlement rate'}
+        <span class="th-note">${isAdu ? 'ADUs, Table A2 ÷ Table A' : '(of units proposed)'}</span> ${arrow('_display_ent_rate')}</th>
+      <th data-sort="_display_days" class="${s==='_display_days'?'sorted':''}"
+          title="Median days from the date the application was SUBMITTED (APR Table A) to the date the building permit was issued (Table A2). Time before submittal — pre-application review and completeness determinations — is not reported to HCD and is not in this number.">
+        ${isAdu ? 'ADU median days (60-day limit)' : 'Median days'}
+        <span class="th-note">${isAdu ? '' : 'submitted → permit'}</span> ${arrow('_display_days')}
       </th>
       <th>Data source</th>
       <th></th>
@@ -527,7 +562,8 @@ function tableHTML(cities) {
             <span class="score-num" style="color:${scoreColor}">${score}</span>
           </div>
         </td>
-        <td><a class="city-link" data-city="${c.city}">${c.city}</a></td>
+        <td><a class="city-link" data-city="${c.city}">${c.city}</a>${c.filed_latest_apr === false
+          ? `<span class="stale-badge" title="This city has not filed its ${DATA.metadata.latest_apr_year} APR yet; its figures run through ${c.latest_reported_year}.">(through ${c.latest_reported_year})</span>` : ''}</td>
         <td>
           <span class="badge ${rhnaBadge}">${rhnaLabel}</span>
           <span style="font-size:11px;color:var(--text-3);margin-left:4px">${c.rhna_permitted}/${c.rhna_target}</span>
@@ -571,9 +607,12 @@ function drilldownHTML(c) {
   const aduOverLimit = aduHasData && adu.median_days > 60;
   const aduWithin = adu.within_60_days_pct;
 
+  // HCD housing element compliance (fetched from HCD, not derived from permits)
+  const he = c.housing_element || {};
+
   // Date completeness — show as a signal
   const dc = c.date_completeness_pct || {};
-  const appDatePct = dc['table_a_date_application_complete_pct'];
+  const appDatePct = dc['table_a_date_application_submitted_pct'];
   const pmtDatePct = dc['table_a2_date_building_permit_pct'];
 
   const years = (c.years_in_data || []).join(', ') || '—';
@@ -585,7 +624,8 @@ function drilldownHTML(c) {
         <div class="dd-title">${c.city}</div>
         <div class="dd-sub">
           Friction score <strong style="color:${scoreColor}">${score}/100</strong>
-          · Years in data: ${years}
+          · Years in data: ${years}${c.filed_latest_apr === false
+            ? ` <span class="stale-badge">(has not filed ${DATA.metadata.latest_apr_year} yet)</span>` : ''}
           · ${c.data_source === 'hybrid' ? 'APR + city open data' : 'HCD APR only'}
         </div>
       </div>
@@ -594,27 +634,39 @@ function drilldownHTML(c) {
 
     <div class="metrics-grid">
       <div class="metric-card">
-        <div class="metric-label">Median days, app → permit</div>
+        <div class="metric-label">Submitted → building permit</div>
         <div class="metric-value" style="color:${c.median_days_to_permit > 350 ? '#e24b4a' : c.median_days_to_permit > 200 ? '#ba7517' : '#639922'}">
           ${c.median_days_to_permit != null ? c.median_days_to_permit + 'd' : '—'}
         </div>
-        <div class="metric-sub">${c.timeline_n > 0 ? `n=${c.timeline_n} projects` : 'no date data'}</div>
+        <div class="metric-sub">median${c.timeline_n > 0 ? ` · n=${c.timeline_n} projects` : ' · no date data'}</div>
       </div>
       <div class="metric-card">
-        <div class="metric-label">App → entitlement</div>
+        <div class="metric-label">Submitted → entitlement</div>
         <div class="metric-value">${c.median_days_to_entitlement != null ? c.median_days_to_entitlement + 'd' : '—'}</div>
         <div class="metric-sub">median days</div>
       </div>
       <div class="metric-card">
-        <div class="metric-label">RHNA progress (6th cycle)</div>
+        <div class="metric-label">RHNA progress (6th cycle, permits)</div>
         <div class="metric-value" style="color:${rhnaColor}">${rhna != null ? rhna + '%' : '—'}</div>
-        <div class="metric-sub">${c.rhna_permitted} of ${(c.rhna_target||0).toLocaleString()} units</div>
+        <div class="metric-sub">${c.rhna_permitted} of ${(c.rhna_target||0).toLocaleString()} units permitted</div>
       </div>
       <div class="metric-card">
         <div class="metric-label">Entitlement rate</div>
         <div class="metric-value">${c.entitlement_rate_pct != null ? c.entitlement_rate_pct + '%' : '—'}</div>
-        <div class="metric-sub">apps reaching permit</div>
+        <div class="metric-sub">of units proposed (Table A)</div>
       </div>
+    </div>
+
+    <div class="clock-note">
+      <b>What this clock measures.</b> It starts the day the application was <b>submitted</b>
+      (APR Table A) and stops when the building permit or entitlement was issued (Table A2).
+      HCD's APR has no field for first contact with the city, no field for an SB 330 preliminary
+      application, and <b>no field for the date an application was deemed complete</b> — so a city
+      that stalls before accepting a filing and then moves quickly looks fast here.
+      Read it as time inside the formal process, not total time to get a permit.
+      ${c.timeline_match_rate_pct != null
+        ? `Matched ${c.timeline_match_rate_pct}% of ${c.city}'s Table A rows to a Table A2 permit record.`
+        : `${c.city} reported too few usable dates to compute a median.`}
     </div>
 
     <div class="rhna-bar-wrap">
@@ -623,7 +675,11 @@ function drilldownHTML(c) {
     </div>
 
     <div class="funnel-wrap">
-      <div class="funnel-title">Pipeline funnel (all years combined)</div>
+      <div class="funnel-title">Pipeline volumes (all years combined)</div>
+      <div class="funnel-note">Applications and entitlements come from Table A (projects needing
+      discretionary review); permits and COs come from Table A2 (every building permit, including
+      ministerial ADUs that never appear in Table A). These are separate counts — a later column is
+      not a subset of an earlier one.</div>
       <div class="funnel">
         ${steps.map(s => {
           const h = maxVal > 0 ? Math.max(Math.round(s.val / maxVal * maxH), 2) : 2;
@@ -652,8 +708,10 @@ function drilldownHTML(c) {
         <div><div style="color:var(--text-3);font-size:11px">Within 60 days</div><strong>${aduWithin != null ? aduWithin + '%' : '—'}</strong></div>
       </div>
       ${aduOverLimit ? `<div class="adu-violation">
-        Median approval time exceeds the 60-day ministerial review deadline (AB 68/881).
-        This constitutes a documented violation of state law.
+        Median time from application submittal to ADU permit exceeds the 60-day ministerial
+        review deadline (AB 68/881) — evidence of a process running past the statutory clock.
+        It is not proof of a violation in any individual case: the 60-day clock can be reset
+        by a resubmittal, and the APR does not report resubmittals.
       </div>` : ''}
     </div>` : ''}
 
@@ -682,26 +740,54 @@ function drilldownHTML(c) {
         </div>` : ''}
       </div>
       <div>
-        <div class="detail-section-title">Accountability levers</div>
+        <div class="detail-section-title">Housing element status (HCD finding)</div>
         <div class="kv-row">
-          <span class="kv-key">SB 35 ministerial eligible</span>
-          <span class="kv-val">${(c.rhna_progress_pct ?? 0) < 75
-            ? '<span class="badge badge-red">Likely yes</span>'
-            : '<span class="badge badge-gray">Check HCD</span>'}</span>
+          <span class="kv-key">Compliance status</span>
+          <span class="kv-val">${he.status
+            ? `<span class="badge ${he.in_compliance === false ? 'badge-red' : he.in_compliance ? 'badge-green' : 'badge-gray'}">${he.status}</span>`
+            : '<span class="badge badge-gray">unknown</span>'}</span>
         </div>
         <div class="kv-row">
-          <span class="kv-key">Builder's Remedy risk</span>
-          <span class="kv-val">${score > 60 ? '<span class="badge badge-red">High</span>'
-            : score > 35 ? '<span class="badge badge-amber">Medium</span>'
-            : '<span class="badge badge-green">Low</span>'}</span>
+          <span class="kv-key">HCD review completed</span>
+          <span class="kv-val">${he.reviewed_date ? fmtDate(he.reviewed_date) : '—'}</span>
         </div>
         <div class="kv-row">
-          <span class="kv-key">HCD compliance status</span>
-          <span class="kv-val"><a href="https://www.hcd.ca.gov/planning-and-community-development/housing-element-compliance"
-            target="_blank" rel="noopener" style="color:var(--blue-text)">Check HCD ↗</a></span>
+          <span class="kv-key">Latest record on file</span>
+          <span class="kv-val">${he.record_type || '—'}${he.review_status ? ` · ${he.review_status}` : ''}</span>
+        </div>
+        <div class="kv-row">
+          <span class="kv-key">Builder's Remedy</span>
+          <span class="kv-val">${he.builders_remedy_applies == null
+            ? '<span class="badge badge-gray">unknown</span>'
+            : he.builders_remedy_applies
+              ? '<span class="badge badge-red">Applies</span>'
+              : '<span class="badge badge-gray">Does not apply</span>'}</span>
+        </div>
+        <div class="kv-row">
+          <span class="kv-key">Source</span>
+          <span class="kv-val"><a href="${DATA.metadata.compliance_source_url}"
+            target="_blank" rel="noopener" style="color:var(--blue-text)">HCD Compliance Report ↗</a></span>
         </div>
       </div>
     </div>
+
+    ${he.builders_remedy_applies === true ? `
+    <div class="warn-box">
+      ⚠ HCD has ${c.city}'s housing element <strong>out of substantial compliance</strong>
+      (status: ${he.status}${he.reviewed_date ? `, as of ${fmtDate(he.reviewed_date)}` : ''}).
+      Under Gov. Code 65589.5(d)(5) — the Builder's Remedy — ${c.city} cannot deny a qualifying
+      project with at least 20% lower-income units (or 100% moderate-income) on the grounds that it
+      conflicts with the city's zoning or general plan. This is HCD's published finding, not a
+      score computed on this page.
+    </div>` : he.in_compliance === true ? `
+    <div class="warn-box" style="background:var(--bg-2);border-color:var(--border);color:var(--text-2)">
+      ℹ HCD found ${c.city}'s housing element in substantial compliance${he.reviewed_date
+        ? ` on ${fmtDate(he.reviewed_date)}` : ''}, so the Builder's Remedy does not currently apply
+      here regardless of this city's friction score. Compliance can be lost later — through an
+      enforcement action or a missed rezoning deadline — and this panel updates with HCD's report.
+      Whether SB 423 streamlining applies is a separate annual determination published on
+      <a href="${DATA.metadata.smap_dashboard_url}" target="_blank" rel="noopener">HCD's SMAP dashboard</a>.
+    </div>` : ''}
 
     ${c.rhna_target >= 4000 && (c.rhna_progress_pct ?? 0) < 30 ? `
     <div class="warn-box" style="background:var(--blue-bg);border-color:var(--blue-text);color:var(--blue-text)">
@@ -766,10 +852,12 @@ function initLeafletMap() {
     L.control.zoom({ position: 'bottomright' }).addTo(leafletMap);
   }
 
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
-    subdomains: 'abcd',
-    maxZoom: 19,
+  // Esri World Light Gray Canvas: keyless and unwatermarked. CARTO's basemaps
+  // now stamp "API KEY REQUIRED" across every tile served without an account,
+  // which was showing up over the whole map in production.
+  L.tileLayer('https://services.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
+    attribution: 'Tiles &copy; Esri — Esri, HERE, Garmin, &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    maxZoom: 16,
     detectRetina: true,
   }).addTo(leafletMap);
 
@@ -848,7 +936,9 @@ function methodologyHTML() {
   <section class="methodology">
     <h2>Methodology & data notes</h2>
     <p>${m.friction_score}</p>
+    <p>${m.rhna_progress}</p>
     <p>${m.timeline}</p>
+    <p>${m.builders_remedy}</p>
     <p>${m.adu_compliance}</p>
     <ul>${(m.data_caveats || []).map(c => `<li>${c}</li>`).join('')}</ul>
     <p style="margin-top:.75rem">
@@ -870,8 +960,14 @@ function footerHTML() {
 // ── Utilities ────────────────────────────────────────────────────────────────
 function fmtDate(iso) {
   if (!iso) return '—';
-  try { return new Date(iso).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }); }
-  catch { return iso; }
+  try {
+    // A date-only string parses as UTC midnight, which renders as the previous
+    // day west of Greenwich — build it in local time so HCD review dates are exact.
+    const d = /^\d{4}-\d{2}-\d{2}$/.test(iso)
+      ? new Date(+iso.slice(0, 4), +iso.slice(5, 7) - 1, +iso.slice(8, 10))
+      : new Date(iso);
+    return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+  } catch { return iso; }
 }
 </script>
 </body>

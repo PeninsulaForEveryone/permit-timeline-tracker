@@ -38,7 +38,7 @@ from pipeline.config import (
 log = logging.getLogger(__name__)
 
 DATE_COLS = [
-    "date_application_complete",
+    "date_application_submitted",
     "date_entitlement",
     "date_building_permit",
     "date_certificate_of_occupancy",
@@ -253,4 +253,4 @@ if __name__ == "__main__":
     print(f"Table A shape: {a.shape}")
     print(f"Table A2 shape: {a2.shape}")
     print("\nTable A sample:")
-    print(a[["jurisdiction", "reporting_year", "unit_type", "date_application_complete"]].head(10))
+    print(a[["jurisdiction", "reporting_year", "unit_type", "date_application_submitted"]].head(10))

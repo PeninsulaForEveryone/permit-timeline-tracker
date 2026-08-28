@@ -19,4 +19,4 @@ clean:
 	rm -rf data/raw/ data/processed/*.parquet data/processed/*.csv
 
 lint:
-	python3 -m py_compile pipeline/config.py pipeline/fetch_apr.py pipeline/transform.py pipeline/run_all.py && echo "OK"
+	python3 -m py_compile pipeline/config.py pipeline/fetch_apr.py pipeline/fetch_compliance.py pipeline/transform.py pipeline/run_all.py tools/make_og_card.py && echo "OK"
