@@ -84,9 +84,6 @@
   .site-header h1 { font-size: clamp(1.6rem, 3.4vw, 2.2rem); font-weight: 800;
                     line-height: 1.15; letter-spacing: -0.02em; margin-bottom: 14px; }
   .site-header p  { font-size: 14px; color: var(--text-2); line-height: 1.5; }
-  .freshness { font-size: 12px; color: var(--text-3); margin-top: 8px; }
-  .freshness a { color: var(--blue-text); text-decoration: none; }
-  .freshness a:hover { text-decoration: underline; }
 
   /* ── Controls ── */
   .controls { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 1rem; }
@@ -525,9 +522,6 @@ function openCityDrilldown(name) {
 
 // ── HTML builders ────────────────────────────────────────────────────────────
 function headerHTML() {
-  const meta = DATA.metadata;
-  const yr = meta.latest_apr_year ?? meta.latest_apr_year_table_a ?? '?';
-  const notFiled = meta.latest_year_not_filed || [];
   return `
   <p class="site-eyebrow">An accountability tool · San Mateo County housing</p>
   <header class="site-header">
@@ -539,24 +533,6 @@ function headerHTML() {
     <p>California has tried to fix this with a legally binding mandate called the RHNA (Regional Housing Needs Allocation), which assigns each city a specific number of homes it must facilitate — by income level, on a fixed timeline — as a condition of state law. Cities that fall behind lose certain zoning powers and become vulnerable to state override. The state agency that tracks compliance is called HCD (the Department of Housing and Community Development), and every city must file an annual progress report showing how many applications they've received, how many permits they've issued, and — in theory — how long each one took.</p>
     <br />
     <p>This tracker pulls that data for every Peninsula jurisdiction and turns it into a friction score: a measure of how obstructive each city actually is to housing getting built. A high score isn't an accident or a market outcome — it's a policy choice made by elected officials, often on behalf of existing homeowners who benefit from scarcity. The goal of this tool is to make those choices visible, comparable, and embarrassing to the cities that deserve it.</p>
-    <br />
-    <p class="freshness">
-      Data: <a href="${meta.source_url}" target="_blank" rel="noopener">HCD Housing Element APR</a>
-      through reporting year ${yr}${notFiled.length
-        ? ` (filed so far by ${meta.latest_year_filed_count} of ${meta.jurisdiction_count} jurisdictions — not yet in: ${notFiled.join(', ')})`
-        : ''}
-      · Housing element status: <a href="${meta.compliance_source_url}" target="_blank" rel="noopener">HCD Compliance Report</a>
-      · Updated ${fmtDate(meta.generated_at)}
-    </p>
-    <p class="freshness">
-      Reading the calendar: an APR covering calendar year ${yr} is due to HCD by April 1, ${yr + 1},
-      and HCD publishes each one as it is filed.${notFiled.length
-        ? ` ${yr} is therefore still filling in — ${meta.complete_apr_year} is the most recent year
-           every city has reported. Cities missing from ${yr} are not penalized for it: their
-           metrics run through the last year they filed, shown on each city's card.`
-        : ` All ${meta.jurisdiction_count} Peninsula jurisdictions have now filed for ${yr}, so every
-           city below is measured over the same years.`}
-    </p>
   </header>`;
 }
 
@@ -1057,6 +1033,9 @@ function shareRowHTML(c) {
 
 function methodologyHTML() {
   const m = DATA.methodology;
+  const meta = DATA.metadata;
+  const yr = meta.latest_apr_year ?? meta.latest_apr_year_table_a ?? '?';
+  const notFiled = meta.latest_year_not_filed || [];
   return `
   <section class="methodology">
     <h2>Methodology & data notes</h2>
@@ -1067,8 +1046,22 @@ function methodologyHTML() {
     <p>${m.adu_compliance}</p>
     <ul>${(m.data_caveats || []).map(c => `<li>${c}</li>`).join('')}</ul>
     <p style="margin-top:.75rem">
-      Source data: <a href="${DATA.metadata.source_url}" target="_blank" rel="noopener">HCD Housing Element APR (data.ca.gov)</a>.
-      Pipeline code: <a href="https://github.com/PeninsulaForEveryone/permit-timeline-tracker" target="_blank" rel="noopener">github.com/PeninsulaForEveryone/permit-timeline-tracker</a>.
+      Permit and RHNA data: <a href="${meta.source_url}" target="_blank" rel="noopener">HCD Housing
+      Element APR (data.ca.gov)</a>, through reporting year ${yr}. Housing element status:
+      <a href="${meta.compliance_source_url}" target="_blank" rel="noopener">HCD Housing Element
+      Compliance Report</a>. Pipeline code:
+      <a href="https://github.com/PeninsulaForEveryone/permit-timeline-tracker" target="_blank" rel="noopener">github.com/PeninsulaForEveryone/permit-timeline-tracker</a>.
+    </p>
+    <p>
+      ${notFiled.length
+        ? `${yr} is still filling in: ${meta.latest_year_filed_count} of ${meta.jurisdiction_count}
+           jurisdictions have filed, and ${meta.complete_apr_year} is the most recent year every city
+           has reported. Not yet in: ${notFiled.join(', ')}. Cities missing from ${yr} are not
+           penalized for it — their metrics run through the last year they filed, shown on each
+           city's card.`
+        : `All ${meta.jurisdiction_count} Peninsula jurisdictions have filed for ${yr}, so every city
+           in the table is measured over the same years.`}
+      Updated ${fmtDate(meta.generated_at)}.
     </p>
   </section>`;
 }

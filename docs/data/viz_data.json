@@ -1,6 +1,6 @@
 {
   "metadata": {
-    "generated_at": "2026-08-28T16:46:10.545131Z",
+    "generated_at": "2026-08-28T21:07:22.436711Z",
     "latest_apr_year": 2025,
     "latest_apr_year_table_a": 2025,
     "latest_apr_year_table_a2": 2025,
@@ -22,7 +22,7 @@
     "adu_compliance": "ADU statutory deadline is 60 days under AB 68/881. Because the APR clock starts at submittal, a median above 60 days is evidence of a permitting process that exceeds the ministerial deadline, but it is not by itself proof of a violation in any individual case \u2014 the statutory clock can be reset by a resubmittal.",
     "data_caveats": [
       "All data is self-reported by jurisdictions to HCD. HCD performs completeness checks but not field-level audits.",
-      "APRs for a calendar year are due to HCD by April 1 of the following year, and HCD publishes them as they are filed. The most recent year in this dataset is therefore always partial \u2014 the header notes how many of the 22 jurisdictions have filed it, and each city's card shows the latest year it reported.",
+      "APRs for a calendar year are due to HCD by April 1 of the following year, and HCD publishes them as they are filed. The most recent year in this dataset is therefore always partial \u2014 the source note below records how many jurisdictions have filed it, and each city's card shows the latest year it reported.",
       "Duplicate entries from resubmissions are deduplicated by keeping the row with the most date fields populated.",
       "RHNA progress uses 6th cycle (2023\u20132031) only, counted by building permit issue date where reported. Pre-2023 permits counted toward the 5th cycle.",
       "Projects appear in multiple APR years as they move through the pipeline; the pipeline deduplicates cross-year on (jurisdiction, address, unit type) to avoid double-counting.",

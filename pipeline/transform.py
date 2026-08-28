@@ -552,7 +552,7 @@ def _methodology_note() -> dict:
         ),
         "data_caveats": [
             "All data is self-reported by jurisdictions to HCD. HCD performs completeness checks but not field-level audits.",
-            "APRs for a calendar year are due to HCD by April 1 of the following year, and HCD publishes them as they are filed. The most recent year in this dataset is therefore always partial — the header notes how many of the 22 jurisdictions have filed it, and each city's card shows the latest year it reported.",
+            "APRs for a calendar year are due to HCD by April 1 of the following year, and HCD publishes them as they are filed. The most recent year in this dataset is therefore always partial — the source note below records how many jurisdictions have filed it, and each city's card shows the latest year it reported.",
             "Duplicate entries from resubmissions are deduplicated by keeping the row with the most date fields populated.",
             "RHNA progress uses 6th cycle (2023–2031) only, counted by building permit issue date where reported. Pre-2023 permits counted toward the 5th cycle.",
             "Projects appear in multiple APR years as they move through the pipeline; the pipeline deduplicates cross-year on (jurisdiction, address, unit type) to avoid double-counting.",
