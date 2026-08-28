@@ -4,7 +4,7 @@
 Ranked by friction score — median permit approval time, pipeline conversion rates, RHNA progress,
 and ADU statutory compliance — across San Mateo County and Peninsula jurisdictions.
 
-Live: **https://peninsulaforeveryone.github.io/peninsula-permit-tracker/**
+Live: **https://peninsulaforeveryone.github.io/permit-timeline-tracker/**
 
 A project of [Peninsula for Everyone](https://www.peninsulaforeveryone.org).
 
@@ -45,8 +45,8 @@ Cities that don't report required date fields to HCD are flagged — missing dat
 ## Quickstart
 
 ```bash
-git clone https://github.com/PeninsulaForEveryone/peninsula-permit-tracker
-cd peninsula-permit-tracker
+git clone https://github.com/PeninsulaForEveryone/permit-timeline-tracker
+cd permit-timeline-tracker
 make install
 make run
 # open docs/index.html in a browser
