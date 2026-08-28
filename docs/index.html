@@ -148,6 +148,7 @@
   .dd-rank    { font-size: 12px; font-weight: 700; letter-spacing: .02em;
                 padding: 3px 9px; border-radius: 99px; white-space: nowrap; }
   .dd-sub     { font-size: 13px; color: var(--text-2); margin-top: 3px; }
+  .dd-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
   .close-btn  { background: none; border: 1px solid var(--border-2); border-radius: var(--radius); padding: 4px 10px; font-size: 13px; color: var(--text-2); cursor: pointer; }
   .close-btn:hover { background: var(--bg-2); }
 
@@ -254,16 +255,10 @@
   .sibling-card-arrow { margin-left: auto; color: var(--brand); font-size: 20px; flex-shrink: 0; }
   @media (max-width: 600px) { .sibling-card-arrow { display: none; } }
 
-  /* ── Share row ── */
-  .dd-share { display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
-              margin: -.5rem 0 1.25rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border); }
-  .dd-share-label { font-size: 11px; font-weight: 600; text-transform: uppercase;
-                    letter-spacing: .05em; color: var(--text-3); margin-right: 2px; }
-  .share-btn { display: inline-flex; align-items: center; gap: 5px;
-               font-family: var(--font); font-size: 12px; font-weight: 500;
-               padding: 5px 11px; border-radius: 99px;
-               border: 1px solid var(--border-2); background: var(--bg);
-               color: var(--text-2); cursor: pointer; text-decoration: none;
+  /* ── Copy-link button ── */
+  .share-btn { font-family: var(--font); font-size: 13px; padding: 4px 10px;
+               border: 1px solid var(--border-2); border-radius: var(--radius);
+               background: none; color: var(--text-2); cursor: pointer; white-space: nowrap;
                transition: background .1s, color .1s, border-color .1s; }
   .share-btn:hover { background: var(--brand-faint); color: var(--brand); border-color: var(--brand); }
   .share-btn.copied { background: var(--brand); color: #fff; border-color: var(--brand); }
@@ -689,10 +684,11 @@ function drilldownHTML(c) {
           · ${c.data_source === 'hybrid' ? 'APR + city open data' : 'HCD APR only'}
         </div>
       </div>
-      <button class="close-btn" data-close-drilldown>Close ✕</button>
+      <div class="dd-actions">
+        <button class="share-btn" data-share-copy="${encodeURIComponent(cityShareUrl(c))}">Copy link</button>
+        <button class="close-btn" data-close-drilldown>Close ✕</button>
+      </div>
     </div>
-
-    ${shareRowHTML(c)}
 
     <div class="metrics-grid">
       <div class="metric-card">
@@ -993,42 +989,12 @@ function showMapInfoStrip(name, cityData, score) {
 }
 
 // The per-city URL already round-trips through readUrlState/writeUrlState, but
-// nothing surfaced it — these make that permalink shareable in one click.
+// nothing surfaced it — this makes that permalink copyable in one click.
 function cityShareUrl(c) {
   const u = new URL(location.pathname, location.origin);
   u.searchParams.set('city', c.city);
   if (state.unitFilter !== 'all') u.searchParams.set('filter', state.unitFilter);
   return u.toString();
-}
-
-function cityShareText(c) {
-  const parts = [`${c.city} ranks #${c.rank} of ${DATA.cities.length} Peninsula cities ` +
-                 `for housing permit friction (score ${c.friction_score}/100)`];
-  if (c.rhna_progress_pct != null) {
-    parts.push(`${c.rhna_progress_pct}% of its RHNA housing target permitted`);
-  }
-  if (c.median_days_to_permit != null) {
-    parts.push(`a median ${c.median_days_to_permit} days from application to building permit`);
-  }
-  return parts.join(' — ') + '.';
-}
-
-function shareRowHTML(c) {
-  const url = cityShareUrl(c);
-  const text = cityShareText(c);
-  const bsky = 'https://bsky.app/intent/compose?text=' + encodeURIComponent(text + '\n\n' + url);
-  const x    = 'https://twitter.com/intent/tweet?text=' + encodeURIComponent(text) +
-               '&url=' + encodeURIComponent(url);
-  const mail = 'mailto:?subject=' + encodeURIComponent(`Housing permit friction in ${c.city}`) +
-               '&body=' + encodeURIComponent(text + '\n\n' + url);
-  return `
-    <div class="dd-share">
-      <span class="dd-share-label">Share ${c.city}</span>
-      <button class="share-btn" data-share-copy="${encodeURIComponent(url)}">Copy link</button>
-      <a class="share-btn" href="${bsky}" target="_blank" rel="noopener">Bluesky</a>
-      <a class="share-btn" href="${x}" target="_blank" rel="noopener">X</a>
-      <a class="share-btn" href="${mail}">Email</a>
-    </div>`;
 }
 
 function methodologyHTML() {
