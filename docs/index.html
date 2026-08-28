@@ -601,7 +601,7 @@ function tableHTML(cities) {
       const daysBadge = days == null ? 'badge-gray'
                       : (isAdu ? (days <= 60 ? 'badge-green' : days <= 90 ? 'badge-amber' : 'badge-red')
                                : (days <= 200 ? 'badge-green' : days <= 350 ? 'badge-amber' : 'badge-red'));
-      const daysLabel = days != null ? `${days}d` : '<span class="na-val">not reported</span>';
+      const daysLabel = days != null ? `${days} days` : '<span class="na-val">not reported</span>';
       const isSelected = state.selectedCity === c.city;
       const srcClass = c.data_source === 'hybrid' ? 'src-hybrid' : 'src-apr';
       const srcLabel = c.data_source === 'hybrid' ? 'APR + city portal' : 'HCD APR only';
@@ -694,13 +694,13 @@ function drilldownHTML(c) {
       <div class="metric-card">
         <div class="metric-label">Submitted → building permit</div>
         <div class="metric-value" style="color:${c.median_days_to_permit > 350 ? '#e24b4a' : c.median_days_to_permit > 200 ? '#ba7517' : '#639922'}">
-          ${c.median_days_to_permit != null ? c.median_days_to_permit + 'd' : '—'}
+          ${c.median_days_to_permit != null ? c.median_days_to_permit + ' days' : '—'}
         </div>
         <div class="metric-sub">median${c.timeline_n > 0 ? ` · n=${c.timeline_n} projects` : ' · no date data'}</div>
       </div>
       <div class="metric-card">
         <div class="metric-label">Submitted → entitlement</div>
-        <div class="metric-value">${c.median_days_to_entitlement != null ? c.median_days_to_entitlement + 'd' : '—'}</div>
+        <div class="metric-value">${c.median_days_to_entitlement != null ? c.median_days_to_entitlement + ' days' : '—'}</div>
         <div class="metric-sub">median days</div>
       </div>
       <div class="metric-card">
@@ -762,7 +762,7 @@ function drilldownHTML(c) {
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:10px;font-size:13px">
         <div><div style="color:var(--text-3);font-size:11px">ADU applications</div><strong>${adu.apps ?? '—'}</strong></div>
         <div><div style="color:var(--text-3);font-size:11px">ADU permits issued</div><strong>${adu.permits ?? '—'}</strong></div>
-        <div><div style="color:var(--text-3);font-size:11px">Median days</div><strong>${adu.median_days != null ? adu.median_days + 'd' : '—'}</strong></div>
+        <div><div style="color:var(--text-3);font-size:11px">Median days</div><strong>${adu.median_days != null ? adu.median_days + ' days' : '—'}</strong></div>
         <div><div style="color:var(--text-3);font-size:11px">Within 60 days</div><strong>${aduWithin != null ? aduWithin + '%' : '—'}</strong></div>
       </div>
       ${aduOverLimit ? `<div class="adu-violation">
@@ -982,7 +982,7 @@ function showMapInfoStrip(name, cityData, score) {
     <div class="mis-stats">
       ${score != null ? `<div class="mis-stat">Score: <strong style="color:${scoreColor}">${score}/100</strong></div>` : ''}
       ${rhna != null ? `<div class="mis-stat">RHNA: <strong>${rhna}%</strong></div>` : ''}
-      ${days != null ? `<div class="mis-stat">Median: <strong>${days}d</strong></div>` : ''}
+      ${days != null ? `<div class="mis-stat">Median: <strong>${days} days</strong></div>` : ''}
     </div>
     <div class="mis-open" onclick="openCityDrilldown('${name}')">Tap again for full details →</div>
   `;
