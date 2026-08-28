@@ -22,41 +22,67 @@
 <meta name="twitter:description" content="How long does your city take to approve housing? See how every Peninsula city ranks on permit speed, RHNA progress, and ADU compliance." />
 <meta name="twitter:image" content="https://peninsulaforeveryone.github.io/permit-timeline-tracker/img.png?v=2" />
 <meta name="twitter:image:alt" content="Map of San Mateo County Peninsula cities shaded by housing permit friction score." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-  /* Light mode — warm off-white editorial palette matching peninsulaforeveryone.org */
+  /* Peninsula for Everyone brand palette — shared with the enrollment tracker.
+     Surfaces and text are brand; the red/amber/green data triplets below are
+     NOT — they encode friction severity and must stay distinct from brand green. */
   :root {
-    --bg:        #faf9f6;
-    --bg-2:      #f2f0eb;
-    --bg-3:      #e8e5de;
-    --text:      #1c1b18;
-    --text-2:    #4a4844;
-    --text-3:    #7a7874;
-    --border:    rgba(0,0,0,0.09);
-    --border-2:  rgba(0,0,0,0.16);
+    --brand:        #1d6b50;   /* P4E primary teal-green */
+    --brand-dark:   #144d3a;   /* header bar / hover */
+    --brand-light:  #2b8a68;   /* logo mark, light accent */
+    --brand-faint:  #e8f3ef;   /* callout tint */
+
+    --bg:        #ffffff;
+    --bg-2:      #f4faf7;
+    --bg-3:      #e2efe9;
+    --text:      #111b17;
+    --text-2:    #4a6358;
+    --text-3:    #7d9a8f;
+    --border:    #e2efe9;
+    --border-2:  #cbe0d7;
     --red-bg:    #fdecea; --red-text:   #8b1f1f; --red-bar:    #d94040;
     --amber-bg:  #fef4e4; --amber-text: #7a4208; --amber-bar:  #b87316;
     --green-bg:  #eaf5da; --green-text: #2e5e10; --green-bar:  #4e8a16;
-    --blue-bg:   #e8f2fc; --blue-text:  #1455a0;
-    --gray-bg:   #eeece6; --gray-text:  #5a5856;
+    --blue-bg:   #e8f2fc; --blue-text:  #1a5fa8;
+    --gray-bg:   #eef4f1; --gray-text:  #4a6358;
     --radius:    7px;
     --radius-lg: 11px;
-    --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    --font: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
   }
 
-  body { font-family: var(--font); background: var(--bg); color: var(--text); font-size: 15px; line-height: 1.6; }
+  body { font-family: var(--font); background: var(--bg); color: var(--text); font-size: 15px; line-height: 1.6; -webkit-font-smoothing: antialiased; }
+
+  /* ── P4E attribution bar ── */
+  .p4e-header { background: var(--brand-dark); padding: 12px 24px; }
+  .p4e-header-inner { max-width: 960px; margin: 0 auto; display: flex; align-items: center; gap: 14px; }
+  .p4e-header a { display: flex; align-items: center; gap: 10px; text-decoration: none;
+                  color: rgba(255,255,255,0.9); font-size: 13px; font-weight: 500; }
+  .p4e-header a:hover { color: #fff; }
+  .p4e-logo-mark { width: 28px; height: 28px; background: var(--brand-light); border-radius: 6px;
+                   display: flex; align-items: center; justify-content: center;
+                   font-size: 14px; font-weight: 800; color: #fff; flex-shrink: 0; }
+  .p4e-divider { color: rgba(255,255,255,0.3); margin: 0 4px; }
+  .p4e-resource-label { color: rgba(255,255,255,0.5); font-size: 12px; }
 
   /* ── Layout ── */
   .page { max-width: 960px; margin: 0 auto; padding: 2rem 1rem 4rem; }
 
   /* ── Header ── */
-  .site-eyebrow { font-size: 13px; color: var(--text-3); margin-bottom: 1rem; }
-  .site-eyebrow a { color: var(--text-3); text-decoration: none; font-weight: 500; }
-  .site-eyebrow a:hover { color: var(--text); }
+  .site-eyebrow { font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase;
+                  color: var(--brand); margin-bottom: 1rem; display: flex; align-items: center; gap: 10px; }
+  .site-eyebrow::before { content: ''; display: block; width: 20px; height: 2px;
+                          background: var(--brand); border-radius: 1px; }
+  .site-eyebrow a { color: var(--brand); text-decoration: none; font-weight: 700; }
+  .site-eyebrow a:hover { color: var(--brand-dark); }
   .site-header { margin-bottom: 2rem; }
-  .site-header h1 { font-size: 22px; font-weight: 600; margin-bottom: 6px; }
+  .site-header h1 { font-size: clamp(1.6rem, 3.4vw, 2.2rem); font-weight: 800;
+                    line-height: 1.15; letter-spacing: -0.02em; margin-bottom: 14px; }
   .site-header p  { font-size: 14px; color: var(--text-2); line-height: 1.5; }
   .freshness { font-size: 12px; color: var(--text-3); margin-top: 8px; }
   .freshness a { color: var(--blue-text); text-decoration: none; }
@@ -175,9 +201,15 @@
   .methodology p, .methodology li { font-size: 13px; color: var(--text-2); line-height: 1.7; margin-bottom: .5rem; }
   .methodology ul { padding-left: 1.25rem; }
 
-  .site-footer { margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--border); font-size: 12px; color: var(--text-3); }
-  .site-footer a { color: var(--blue-text); text-decoration: none; }
+  .site-footer { margin-top: 3rem; padding-top: 1.5rem; border-top: 1px solid var(--border); font-size: 12px; color: var(--text-3); }
+  .site-footer a { color: var(--brand); text-decoration: none; }
   .site-footer a:hover { text-decoration: underline; }
+  .footer-p4e { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 1rem; }
+  .footer-p4e-mark { width: 32px; height: 32px; background: var(--brand); border-radius: 7px;
+                     display: flex; align-items: center; justify-content: center;
+                     font-size: 16px; font-weight: 800; color: #fff; flex-shrink: 0; }
+  .footer-p4e-text { font-size: 13px; color: var(--text-2); line-height: 1.5; }
+  .footer-p4e-text strong { display: block; color: var(--text); font-weight: 700; }
 
   /* ── Map ── */
   .map-section { margin-bottom: 2rem; }
@@ -185,7 +217,7 @@
   .map-section .map-sub { font-size: 13px; color: var(--text-2); margin-bottom: 1rem; }
   #map-container { width: 100%; height: 480px; border-radius: var(--radius-lg); overflow: hidden; }
   .leaflet-container { font-family: var(--font); }
-  .leaflet-control-attribution { font-size: 10px !important; background: rgba(250,249,246,0.85) !important; }
+  .leaflet-control-attribution { font-size: 10px !important; background: rgba(255,255,255,0.85) !important; }
   .map-tooltip {
     position: fixed; pointer-events: none; z-index: 100;
     background: var(--bg); border: 1px solid var(--border-2);
@@ -230,6 +262,16 @@
 </style>
 </head>
 <body>
+<header class="p4e-header">
+  <div class="p4e-header-inner">
+    <a href="https://www.peninsulaforeveryone.org" target="_blank" rel="noopener">
+      <span class="p4e-logo-mark" aria-hidden="true">P</span>
+      <span>Peninsula for Everyone</span>
+    </a>
+    <span class="p4e-divider">·</span>
+    <span class="p4e-resource-label">Data resource</span>
+  </div>
+</header>
 <div class="page" id="app">
   <div class="loading">Loading permit data…</div>
 </div>
@@ -270,7 +312,7 @@ function featureStyle(feature) {
   return {
     fillColor: scoreColor(score),
     fillOpacity: isSelected ? 1 : 0.82,
-    color: isSelected ? '#1c1b18' : '#ffffff',
+    color: isSelected ? '#111b17' : '#ffffff',
     weight: isSelected ? 2.5 : 0.8,
   };
 }
@@ -445,10 +487,7 @@ function headerHTML() {
   const yr = meta.latest_apr_year ?? meta.latest_apr_year_table_a ?? '?';
   const notFiled = meta.latest_year_not_filed || [];
   return `
-  <div class="site-eyebrow">
-    <a href="https://www.peninsulaforeveryone.org" target="_blank" rel="noopener">Peninsula for Everyone</a>
-    · Accountability tool
-  </div>
+  <p class="site-eyebrow">An accountability tool · San Mateo County housing</p>
   <header class="site-header">
     <h1>Peninsula Permit Tracker</h1>
     <p>The San Francisco Peninsula is one of the least affordable places to live in the United States. Rents and home prices have risen for decades, pushing out teachers, nurses, service workers, and the adult children of long-time residents. The cause isn't mysterious: <i>we haven't built enough homes</i>.</p>
@@ -951,8 +990,15 @@ function methodologyHTML() {
 function footerHTML() {
   return `
   <footer class="site-footer">
-    <p>Built by <a href="https://www.peninsulaforeveryone.org" target="_blank" rel="noopener">Peninsula for Everyone</a>.
-    Data: California HCD (CC BY) · Code: MIT.
+    <div class="footer-p4e">
+      <span class="footer-p4e-mark" aria-hidden="true">P</span>
+      <span class="footer-p4e-text">
+        <strong>Peninsula for Everyone</strong>
+        A grassroots network saying yes to homes, transit, and equitable neighborhoods.
+      </span>
+    </div>
+    <p>Data: California HCD (CC BY) · Code: MIT ·
+    <a href="https://github.com/PeninsulaForEveryone/permit-timeline-tracker" target="_blank" rel="noopener">source on GitHub</a>.
     See also: <a href="https://peninsulaforeveryone.github.io/peninsula-enrollment-decline/" target="_blank" rel="noopener">enrollment vs. housing tracker</a>.</p>
   </footer>`;
 }
