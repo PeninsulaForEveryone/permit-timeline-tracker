@@ -232,6 +232,20 @@
   .map-legend-swatch { width: 13px; height: 13px; border-radius: 3px; flex-shrink: 0; }
   .map-no-geo { background: var(--bg-2); border: 1px dashed var(--border-2); border-radius: var(--radius-lg); padding: 2rem; text-align: center; font-size: 13px; color: var(--text-3); margin-bottom: 2rem; }
 
+  /* ── Share row ── */
+  .dd-share { display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+              margin: -.5rem 0 1.25rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border); }
+  .dd-share-label { font-size: 11px; font-weight: 600; text-transform: uppercase;
+                    letter-spacing: .05em; color: var(--text-3); margin-right: 2px; }
+  .share-btn { display: inline-flex; align-items: center; gap: 5px;
+               font-family: var(--font); font-size: 12px; font-weight: 500;
+               padding: 5px 11px; border-radius: 99px;
+               border: 1px solid var(--border-2); background: var(--bg);
+               color: var(--text-2); cursor: pointer; text-decoration: none;
+               transition: background .1s, color .1s, border-color .1s; }
+  .share-btn:hover { background: var(--brand-faint); color: var(--brand); border-color: var(--brand); }
+  .share-btn.copied { background: var(--brand); color: #fff; border-color: var(--brand); }
+
   /* ── Section permalinks ── */
   .section-link { opacity: 0; margin-left: 6px; font-size: 13px; font-weight: 400; color: var(--text-3); text-decoration: none; transition: opacity 0.1s; }
   h2:hover .section-link { opacity: 1; }
@@ -415,6 +429,9 @@ function render() {
 
   const closeBtn = app.querySelector('[data-close-drilldown]');
   if (closeBtn) closeBtn.addEventListener('click', () => { state.selectedCity = null; render(); });
+
+  const copyBtn = app.querySelector('[data-share-copy]');
+  if (copyBtn) copyBtn.addEventListener('click', () => copyShareLink(copyBtn));
 
   if (sel) {
     setTimeout(() => {
@@ -670,6 +687,8 @@ function drilldownHTML(c) {
       </div>
       <button class="close-btn" data-close-drilldown>Close ✕</button>
     </div>
+
+    ${shareRowHTML(c)}
 
     <div class="metrics-grid">
       <div class="metric-card">
@@ -969,6 +988,45 @@ function showMapInfoStrip(name, cityData, score) {
   `;
 }
 
+// The per-city URL already round-trips through readUrlState/writeUrlState, but
+// nothing surfaced it — these make that permalink shareable in one click.
+function cityShareUrl(c) {
+  const u = new URL(location.pathname, location.origin);
+  u.searchParams.set('city', c.city);
+  if (state.unitFilter !== 'all') u.searchParams.set('filter', state.unitFilter);
+  return u.toString();
+}
+
+function cityShareText(c) {
+  const parts = [`${c.city} ranks #${c.rank} of ${DATA.cities.length} Peninsula cities ` +
+                 `for housing permit friction (score ${c.friction_score}/100)`];
+  if (c.rhna_progress_pct != null) {
+    parts.push(`${c.rhna_progress_pct}% of its RHNA housing target permitted`);
+  }
+  if (c.median_days_to_permit != null) {
+    parts.push(`a median ${c.median_days_to_permit} days from application to building permit`);
+  }
+  return parts.join(' — ') + '.';
+}
+
+function shareRowHTML(c) {
+  const url = cityShareUrl(c);
+  const text = cityShareText(c);
+  const bsky = 'https://bsky.app/intent/compose?text=' + encodeURIComponent(text + '\n\n' + url);
+  const x    = 'https://twitter.com/intent/tweet?text=' + encodeURIComponent(text) +
+               '&url=' + encodeURIComponent(url);
+  const mail = 'mailto:?subject=' + encodeURIComponent(`Housing permit friction in ${c.city}`) +
+               '&body=' + encodeURIComponent(text + '\n\n' + url);
+  return `
+    <div class="dd-share">
+      <span class="dd-share-label">Share ${c.city}</span>
+      <button class="share-btn" data-share-copy="${encodeURIComponent(url)}">Copy link</button>
+      <a class="share-btn" href="${bsky}" target="_blank" rel="noopener">Bluesky</a>
+      <a class="share-btn" href="${x}" target="_blank" rel="noopener">X</a>
+      <a class="share-btn" href="${mail}">Email</a>
+    </div>`;
+}
+
 function methodologyHTML() {
   const m = DATA.methodology;
   return `
@@ -1004,6 +1062,34 @@ function footerHTML() {
 }
 
 // ── Utilities ────────────────────────────────────────────────────────────────
+function copyShareLink(btn) {
+  const url = decodeURIComponent(btn.dataset.shareCopy);
+  const done = ok => {
+    btn.textContent = ok ? 'Copied ✓' : 'Press ⌘C';
+    btn.classList.toggle('copied', ok);
+    setTimeout(() => { btn.textContent = 'Copy link'; btn.classList.remove('copied'); }, 2000);
+  };
+  // navigator.clipboard is unavailable over plain http and in older Safari.
+  if (navigator.clipboard?.writeText) {
+    navigator.clipboard.writeText(url).then(() => done(true), () => selectFallback(url, done));
+  } else {
+    selectFallback(url, done);
+  }
+}
+
+function selectFallback(url, done) {
+  const ta = document.createElement('textarea');
+  ta.value = url;
+  ta.setAttribute('readonly', '');
+  ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0';
+  document.body.appendChild(ta);
+  ta.select();
+  let ok = false;
+  try { ok = document.execCommand('copy'); } catch { ok = false; }
+  document.body.removeChild(ta);
+  done(ok);
+}
+
 function fmtDate(iso) {
   if (!iso) return '—';
   try {
