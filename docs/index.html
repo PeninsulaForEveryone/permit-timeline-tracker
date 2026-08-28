@@ -100,18 +100,25 @@
   .filter-btn:hover:not(.active) { background: var(--bg-2); }
 
   /* ── Table ── */
-  .table-wrap { width: 100%; overflow-x: auto; margin-bottom: 1rem; }
-  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  /* overflow-x:auto makes .table-wrap a scroll container in BOTH axes, which
+     would anchor the sticky header to this box instead of the viewport and stop
+     it sticking at all. The table fits the 928px content column, so the
+     horizontal scroll is only needed once the viewport is narrower than that. */
+  .table-wrap { width: 100%; margin-bottom: 1rem; }
+  @media (max-width: 959px) { .table-wrap { overflow-x: auto; } }
+  table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 13px; }
   th {
     text-align: left; padding: 8px 10px;
     border-bottom: 1px solid var(--border-2);
     color: var(--text-3); font-weight: 500; font-size: 12px;
     white-space: nowrap; cursor: pointer; user-select: none;
+    position: sticky; top: 0; z-index: 2; background: var(--bg);
   }
   th:hover { color: var(--text); }
   th .sort-arrow { margin-left: 3px; opacity: 0.4; }
   th.sorted .sort-arrow { opacity: 1; }
   td { padding: 10px 10px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  tbody tr:last-child td { border-bottom: none; }
   tr:hover td { background: var(--bg-2); }
   tr.selected-row td { background: var(--blue-bg); }
   .city-link { font-weight: 500; color: var(--text); cursor: pointer; text-decoration: none; }
@@ -140,7 +147,9 @@
   /* ── Drilldown ── */
   .drilldown { background: var(--bg); border: 1px solid var(--border-2); border-radius: var(--radius-lg); padding: 1.5rem; margin-top: 1.5rem; }
   .dd-header  { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.25rem; }
-  .dd-title   { font-size: 18px; font-weight: 600; }
+  .dd-title   { font-size: 18px; font-weight: 700; display: flex; align-items: baseline; gap: 9px; flex-wrap: wrap; }
+  .dd-rank    { font-size: 12px; font-weight: 700; letter-spacing: .02em;
+                padding: 3px 9px; border-radius: 99px; white-space: nowrap; }
   .dd-sub     { font-size: 13px; color: var(--text-2); margin-top: 3px; }
   .close-btn  { background: none; border: 1px solid var(--border-2); border-radius: var(--radius); padding: 4px 10px; font-size: 13px; color: var(--text-2); cursor: pointer; }
   .close-btn:hover { background: var(--bg-2); }
@@ -231,6 +240,22 @@
   .map-legend-item { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--text-2); }
   .map-legend-swatch { width: 13px; height: 13px; border-radius: 3px; flex-shrink: 0; }
   .map-no-geo { background: var(--bg-2); border: 1px dashed var(--border-2); border-radius: var(--radius-lg); padding: 2rem; text-align: center; font-size: 13px; color: var(--text-3); margin-bottom: 2rem; }
+
+  /* ── Sibling-resource card ── */
+  .sibling-card { display: flex; align-items: center; gap: 16px; margin-top: 2.5rem;
+                  padding: 18px 20px; background: var(--brand-faint);
+                  border: 1px solid var(--border-2); border-radius: var(--radius-lg);
+                  text-decoration: none; color: inherit; transition: border-color .1s; }
+  .sibling-card:hover { border-color: var(--brand); }
+  .sibling-card-mark { width: 38px; height: 38px; background: var(--brand); border-radius: 8px;
+                       display: flex; align-items: center; justify-content: center;
+                       font-size: 19px; font-weight: 800; color: #fff; flex-shrink: 0; }
+  .sibling-card-label { display: block; font-size: 11px; font-weight: 700; text-transform: uppercase;
+                        letter-spacing: .08em; color: var(--brand); margin-bottom: 3px; }
+  .sibling-card-title { display: block; font-size: 15px; font-weight: 700; color: var(--text); margin-bottom: 3px; }
+  .sibling-card-sub { display: block; font-size: 13px; color: var(--text-2); line-height: 1.5; }
+  .sibling-card-arrow { margin-left: auto; color: var(--brand); font-size: 20px; flex-shrink: 0; }
+  @media (max-width: 600px) { .sibling-card-arrow { display: none; } }
 
   /* ── Share row ── */
   .dd-share { display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
@@ -403,7 +428,7 @@ function render() {
   const sel = state.selectedCity ? cities.find(c => c.city === state.selectedCity) : null;
 
   app.innerHTML = headerHTML() + mapHTML() + controlsHTML() + legendHTML() + tableHTML(cities) +
-    (sel ? drilldownHTML(sel) : '') + methodologyHTML() + footerHTML();
+    (sel ? drilldownHTML(sel) : '') + methodologyHTML() + siblingCardHTML() + footerHTML();
 
   // Re-attach after re-render
   app.querySelectorAll('[data-sort]').forEach(th =>
@@ -677,7 +702,10 @@ function drilldownHTML(c) {
   <div class="drilldown">
     <div class="dd-header">
       <div>
-        <div class="dd-title">${c.city}</div>
+        <div class="dd-title">${c.city}
+          <span class="dd-rank" style="background:${scoreColor}1a;color:${scoreColor}">
+            #${c.rank} of ${DATA.cities.length} by friction</span>
+        </div>
         <div class="dd-sub">
           Friction score <strong style="color:${scoreColor}">${score}/100</strong>
           · Years in data: ${years}${c.filed_latest_apr === false
@@ -1045,6 +1073,21 @@ function methodologyHTML() {
   </section>`;
 }
 
+function siblingCardHTML() {
+  return `
+  <a class="sibling-card" href="https://peninsulaforeveryone.github.io/peninsula-enrollment-decline/"
+     target="_blank" rel="noopener">
+    <span class="sibling-card-mark" aria-hidden="true">P</span>
+    <span>
+      <span class="sibling-card-label">Also from Peninsula for Everyone</span>
+      <span class="sibling-card-title">Enrollment decline vs. housing production</span>
+      <span class="sibling-card-sub">"New homes will flood our schools" is the objection you hear at
+        every hearing. Every San Mateo County district has lost students since 2018 anyway.</span>
+    </span>
+    <span class="sibling-card-arrow" aria-hidden="true">&rsaquo;</span>
+  </a>`;
+}
+
 function footerHTML() {
   return `
   <footer class="site-footer">
@@ -1057,7 +1100,7 @@ function footerHTML() {
     </div>
     <p>Data: California HCD (CC BY) · Code: MIT ·
     <a href="https://github.com/PeninsulaForEveryone/permit-timeline-tracker" target="_blank" rel="noopener">source on GitHub</a>.
-    See also: <a href="https://peninsulaforeveryone.github.io/peninsula-enrollment-decline/" target="_blank" rel="noopener">enrollment vs. housing tracker</a>.</p>
+</p>
   </footer>`;
 }
 
